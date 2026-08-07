@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BPC / AI Playbooks Hub &mdash; Leadership Backlog Mapping</title>
+<style>
+/* html-docs design tokens v5 &mdash; warm gradient + glassmorphism (inlined) */
+:root {
+  --bg-app: linear-gradient(155deg,#F4E3CC 0%,#F7EFE3 60%,#FBFAF7 100%);
+  --bg-aux1: radial-gradient(46% 40% at 12% 8%,rgba(232,159,76,.32),transparent 72%);
+  --bg-aux2: radial-gradient(42% 38% at 92% 96%,rgba(30,95,116,.16),transparent 72%);
+  --bg-base:#EDE7DD; --text-1:#1A1F2E; --text-2:rgba(26,31,46,.72); --text-3:rgba(26,31,46,.50); --text-4:rgba(26,31,46,.36); --hairline:rgba(26,31,46,.10);
+  --surface:#FFF; --surface-2:rgba(255,255,255,.55); --surface-3:#E3DACC; --border:rgba(26,31,46,.18); --white:#FFF; --slate:#1A1F2E; --ivory:#FAF9F5; --oat:#E3DACC;
+  --chip-bg:rgba(255,255,255,.45); --glass-bg:rgba(251,250,247,.55); --glass-bg-2:rgba(251,250,247,.42); --glass-border:rgba(255,255,255,.55); --glass-shadow:0 18px 50px rgba(120,75,30,.14),inset 0 1px 0 rgba(255,255,255,.65);
+  --accent:#E89F4C; --accent-ink:#a86b25; --accent-2:#D45D5D; --accent-soft:rgba(232,159,76,.15); --teal:#1E5F74; --plum:#5C3D7A; --green:#3F7D5C; --coral:#D45D5D; --gold:#F2C94C; --warn:#8A6210;
+  --font-display:"Fraunces","Iowan Old Style","Times New Roman",Georgia,serif; --font-body:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,sans-serif; --font-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --t-display:44px; --t-h1:32px; --t-h2:24px; --t-body:15px; --t-small:13px; --t-micro:11px; --r-1:4px; --r-2:12px; --r-3:18px; --r-4:20px;
+}
+[data-theme="dark"] {
+  --bg-app:linear-gradient(155deg,#141A2A 0%,#1B2438 55%,#221E33 100%); --bg-aux1:radial-gradient(44% 38% at 14% 10%,rgba(217,184,148,.18),transparent 72%); --bg-aux2:radial-gradient(42% 36% at 92% 96%,rgba(92,61,122,.28),transparent 72%); --bg-base:#141A2A;
+  --text-1:#F4ECDF; --text-2:#C7BBA8; --text-3:#948A7B; --text-4:#635B50; --hairline:rgba(217,184,148,.14); --surface:rgba(30,27,40,.92); --surface-2:rgba(28,34,52,.40); --surface-3:#221E33; --border:rgba(244,236,223,.16); --white:#F4ECDF; --slate:#0F0E12; --ivory:#F4ECDF; --oat:#221E33;
+  --chip-bg:rgba(255,255,255,.06); --glass-bg:rgba(28,34,52,.40); --glass-bg-2:rgba(30,27,40,.92); --glass-border:rgba(217,184,148,.14); --glass-shadow:0 18px 56px rgba(0,0,0,.50),inset 0 1px 0 rgba(217,184,148,.10); --accent:#D9B894; --accent-ink:#E2CBA8; --accent-2:#C49A8A; --accent-soft:rgba(217,184,148,.15);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0} html{overflow-x:clip;scroll-behavior:smooth;background:var(--bg-base)}
+body{min-height:100vh;overflow-x:clip;padding:56px 32px 96px;background:var(--bg-aux1),var(--bg-aux2),var(--bg-app);color:var(--text-1);font-family:var(--font-body);font-size:var(--t-body);line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.theme-toggle{position:fixed;top:18px;right:18px;z-index:50;width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--text-1);box-shadow:var(--glass-shadow);backdrop-filter:blur(20px);cursor:pointer;font-size:18px;line-height:1;transition:background 120ms ease,transform 120ms ease,border-color 120ms ease}.theme-toggle:hover{background:var(--accent-soft);border-color:var(--accent);transform:translateY(-1px)}.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media print{.theme-toggle,.doc-shell__toc{display:none}}
+.doc-shell{width:100%;max-width:none;margin:0;display:grid;grid-template-columns:220px minmax(0,1fr) 220px;column-gap:32px;align-items:start}.doc-shell__spacer{grid-column:1;grid-row:1}.doc-shell__main{grid-column:2;grid-row:1;min-width:0;display:flex;flex-direction:column;gap:36px}.doc-shell__toc{grid-column:3;grid-row:1;position:sticky;top:24px;min-width:0;border-left:1px solid var(--hairline);padding-left:18px}.doc-shell__toc h4{margin-bottom:10px}.doc-shell__toc a{display:block;font-size:12px;color:var(--text-2);border:0;padding:4px 0;line-height:1.4}.doc-shell__toc a:hover{color:var(--accent-ink)}
+h1,h2,h3{font-family:var(--font-display);font-weight:500;color:var(--text-1)}h1{font-size:var(--t-display);line-height:1.05;letter-spacing:-.022em}h1 em,h2 em{font-style:italic;font-weight:400;color:var(--accent)}h2{font-size:var(--t-h1);letter-spacing:-.015em}h2 em{color:var(--text-3)}h3{font-size:var(--t-h2)}h4{font-size:var(--t-micro);font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin:0 0 8px}p{max-width:860px;color:var(--text-2);line-height:1.55}.glass p,.panel p,.panel-mute p,.panel-warm p,.glass li,.panel li{max-width:none}p.lede{font-size:16px}a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}a:hover{border-bottom-color:var(--accent)}ul,ol{padding-left:24px;color:var(--text-2);line-height:1.7}li+li{margin-top:4px}strong{color:var(--text-1);font-weight:600}small{color:var(--text-3);font-size:12px}.eyebrow{font-family:var(--font-mono);font-size:var(--t-micro);text-transform:uppercase;letter-spacing:.08em;color:var(--text-3)}
+.glass{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--r-4);box-shadow:var(--glass-shadow);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);padding:24px 28px}.panel{background:rgba(255,255,255,.55);border:1px solid var(--hairline);border-radius:var(--r-3);padding:20px;backdrop-filter:blur(12px)}[data-theme="dark"] .panel{background:rgba(28,34,52,.35)}.panel-mute{background:rgba(255,255,255,.30);border:1px solid var(--hairline);border-radius:var(--r-3);padding:20px}.panel-warm{background:rgba(232,159,76,.10);border:1px solid rgba(232,159,76,.30);border-radius:var(--r-3);padding:20px}.panel-dark{background:var(--slate);color:rgba(255,255,255,.88);border-radius:var(--r-2);padding:20px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--hairline);margin-bottom:16px}.sec-head .num{font-family:var(--font-mono);color:var(--text-3);font-size:var(--t-small)}.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-family:var(--font-mono);font-size:var(--t-micro);font-weight:600;letter-spacing:.02em;background:var(--chip-bg);color:var(--text-2);border:1px solid var(--hairline)}.pill.accent{background:rgba(232,159,76,.18);color:var(--accent-ink);border-color:rgba(232,159,76,.36)}.pill.info{background:rgba(30,95,116,.12);color:var(--teal);border-color:rgba(30,95,116,.30)}.pill.ok{background:rgba(63,125,92,.14);color:var(--green);border-color:rgba(63,125,92,.30)}.pill.warn{background:rgba(242,201,76,.18);color:var(--warn);border-color:rgba(242,201,76,.40)}.pill.bad{background:rgba(212,93,93,.12);color:var(--coral);border-color:rgba(212,93,93,.30)}
+code{font-family:var(--font-mono);font-size:.92em;background:rgba(255,255,255,.45);padding:1px 6px;border-radius:var(--r-1);border:1px solid var(--hairline);color:var(--text-1);overflow-wrap:anywhere}[data-theme="dark"] code{background:rgba(255,255,255,.06)}pre{font-family:var(--font-mono);font-size:var(--t-small);line-height:1.6;background:var(--slate);color:rgba(255,255,255,.86);padding:16px 18px;border-radius:var(--r-2);overflow-x:auto;margin:12px 0}pre code{background:none;border:0;padding:0;color:inherit}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--t-small);margin:12px 0}thead th{text-align:left;font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--hairline)}tbody td{padding:12px;border-bottom:1px dashed var(--hairline);vertical-align:top;color:var(--text-2)}tbody tr:last-child td{border-bottom:0}
+.callout{display:flex;gap:12px;align-items:flex-start;border-radius:var(--r-2);padding:16px 18px;background:rgba(242,201,76,.12);border:1px solid rgba(242,201,76,.24)}.callout--teal{background:rgba(30,95,116,.09);border-color:rgba(30,95,116,.22)}.callout--coral{background:rgba(212,93,93,.08);border-color:rgba(212,93,93,.22)}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.fig-cap{font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-align:center;margin-top:10px;letter-spacing:.03em}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.summary .glass{padding:18px 20px}.summary .lab{font-size:var(--t-micro);letter-spacing:.10em;text-transform:uppercase;color:var(--text-3);font-weight:600;font-family:var(--font-mono)}.summary .num{font-family:var(--font-display);font-weight:600;font-size:32px;letter-spacing:-.02em;margin-top:6px;color:var(--text-1)}.summary .num.accent{color:var(--accent-ink)}.summary .sub{font-size:var(--t-micro);color:var(--text-3);margin-top:4px}
+@media(max-width:900px){.doc-shell{grid-template-columns:1fr}.doc-shell__spacer{display:none}.doc-shell__main{grid-column:1;grid-row:2}.doc-shell__toc{grid-column:1;grid-row:1;position:static;border-left:0;border-bottom:1px solid var(--hairline);padding:0 0 12px}.grid-3{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}}@media(max-width:700px){body{padding:52px 16px 64px}.glass{padding:20px 16px}h1{font-size:36px}h2{font-size:27px}.grid-2,.grid-3,.summary{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}}
+</style>
+<style>
+/* ===== editorial shell shared with the BPC document family ===== */
+:root {
+  --doc-radius-xl: 26px; --doc-radius-lg: 18px; --doc-radius-md: 12px;
+  --doc-shadow: 0 24px 70px color-mix(in srgb, var(--accent) 16%, transparent), inset 0 1px 0 color-mix(in srgb, var(--white) 74%, transparent);
+  --doc-surface: var(--glass-bg, var(--surface-2)); --doc-surface-strong: var(--surface-2); --doc-border: var(--glass-border);
+  --doc-teal-soft: color-mix(in srgb, var(--teal) 11%, transparent); --doc-plum-soft: color-mix(in srgb, var(--plum) 11%, transparent);
+  --doc-green-soft: color-mix(in srgb, var(--green) 12%, transparent); --doc-coral-soft: color-mix(in srgb, var(--coral) 12%, transparent);
+}
+[data-theme="dark"] { --doc-shadow: 0 26px 78px rgba(0,0,0,.48), inset 0 1px 0 color-mix(in srgb, var(--accent) 12%, transparent); --doc-surface-strong: var(--glass-bg-2, var(--surface-2)); }
+html, body { min-width: 0; overflow-x: clip; }
+body { padding: 28px 0 92px; background: var(--bg-aux1), var(--bg-aux2), var(--bg-app); }
+.doc-shell { width: 100%; max-width: 1680px; margin: 0 auto; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(188px, 220px); column-gap: 34px; }
+.doc-shell__main { gap: 44px; }
+.doc-shell__main > section, .doc-shell__main > header { scroll-margin-top: 28px; }
+.glass { padding: clamp(24px, 3.2vw, 40px); border-radius: var(--doc-radius-xl); background: var(--doc-surface); border-color: var(--doc-border); box-shadow: var(--doc-shadow); }
+.glass > .sec-head { margin-bottom: 24px; }
+.hero { position: relative; min-height: 400px; display: grid; align-content: end; overflow: hidden; isolation: isolate; }
+.hero::before { content: ""; position: absolute; width: 500px; height: 500px; right: -170px; top: -185px; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 50%; box-shadow: 0 0 0 72px color-mix(in srgb, var(--accent) 7%, transparent), 0 0 0 144px color-mix(in srgb, var(--teal) 5%, transparent); z-index: -1; }
+.hero::after { content: "MAP / DECODE / MONITOR"; position: absolute; right: 30px; top: 30px; color: var(--text-3); font: 700 var(--t-micro)/1 var(--font-mono); letter-spacing: .13em; writing-mode: vertical-rl; }
+.hero h1 { max-width: 920px; font-size: clamp(36px, 4.6vw, 62px); letter-spacing: -.04em; }
+.hero .lede { max-width: 900px; margin-top: 18px; font-size: clamp(16px, 1.5vw, 19px); line-height: 1.55; }
+.hero .row { margin-top: 22px; }
+.hero small { display: block; max-width: 920px; }
+.eyebrow { margin-bottom: 14px; color: var(--accent-ink); font-weight: 700; }
+.sec-head { min-height: 44px; }
+.sec-head h2 { font-size: clamp(25px, 2.6vw, 38px); letter-spacing: -.03em; }
+.sec-head .num { color: var(--accent-ink); font-weight: 700; }
+.sec-head .row { gap: 10px; }
+h3 { margin-top: 20px; letter-spacing: -.015em; }
+.panel, .panel-mute, .panel-warm, .panel-dark { border-radius: var(--doc-radius-lg); border-color: var(--hairline); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 30%, transparent); }
+.panel { background: var(--doc-surface-strong); }
+.panel-mute { background: color-mix(in srgb, var(--doc-surface) 70%, transparent); }
+.panel-warm { background: color-mix(in srgb, var(--accent) 10%, var(--doc-surface)); border-color: color-mix(in srgb, var(--accent) 28%, var(--hairline)); }
+.callout { border-radius: var(--doc-radius-md); padding: 18px 20px; border-color: color-mix(in srgb, var(--accent) 26%, var(--hairline)); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.callout--coral { background: var(--doc-coral-soft); border-color: color-mix(in srgb, var(--coral) 28%, var(--hairline)); }
+.callout--teal { background: var(--doc-teal-soft); border-color: color-mix(in srgb, var(--teal) 28%, var(--hairline)); }
+.grid-2, .grid-3 { gap: 18px; }
+.pill { min-height: 28px; padding: 5px 10px; }
+.pill.plum { background: color-mix(in srgb, var(--plum) 14%, transparent); color: var(--plum); border-color: color-mix(in srgb, var(--plum) 30%, var(--hairline)); }
+table { border: 1px solid var(--hairline); border-radius: var(--doc-radius-md); overflow: hidden; background: color-mix(in srgb, var(--doc-surface) 72%, transparent); }
+thead th { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+tbody td { border-bottom-color: var(--hairline); }
+.doc-shell__toc { top: 28px; padding: 18px 0 18px 20px; border-left-color: color-mix(in srgb, var(--accent) 26%, var(--hairline)); }
+.doc-shell__toc h4 { color: var(--accent-ink); }
+.doc-shell__toc a { padding: 7px 0; }
+.doc-shell__toc a:hover { color: var(--accent-ink); transform: translateX(2px); }
+.theme-toggle { width: 44px; height: 44px; top: 16px; right: 18px; }
+.icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.summary .num { font-size: 30px; }
+/* diagram */
+.diagram-panel { margin-top: 24px; overflow: hidden; border: 1px solid var(--hairline); border-radius: var(--doc-radius-xl); background: color-mix(in srgb, var(--doc-surface) 76%, transparent); box-shadow: var(--doc-shadow); }
+.diagram-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--hairline); }
+.diagram-bar h3 { margin: 0; font: 700 15px/1.2 var(--font-body); }
+.diagram-bar span { color: var(--text-3); font: 700 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.diagram-scroll { overflow-x: auto; padding: 18px; }
+.inline-diagram { display: block; width: 100%; height: auto; min-width: 900px; }
+.inline-diagram .zone { fill: var(--doc-surface-strong); stroke: var(--hairline); stroke-width: 1.5; }
+.inline-diagram .node { fill: var(--surface-3, var(--doc-surface-strong)); stroke: var(--accent); stroke-width: 1.5; }
+.inline-diagram .node.teal { fill: var(--doc-teal-soft); stroke: var(--teal); }
+.inline-diagram .node.plum { fill: var(--doc-plum-soft); stroke: var(--plum); }
+.inline-diagram .node.green { fill: var(--doc-green-soft); stroke: var(--green); }
+.inline-diagram .node.coral { fill: var(--doc-coral-soft); stroke: var(--coral); }
+.inline-diagram .edge { fill: none; stroke: var(--text-2); stroke-width: 1.7; marker-end: url(#diag-arrow); }
+.inline-diagram .edge.dash { stroke-dasharray: 5 5; stroke: var(--coral); marker-end: url(#diag-arrow-coral); }
+.inline-diagram text { fill: var(--text-1); font-family: var(--font-body); font-size: 13.5px; }
+.inline-diagram .small { fill: var(--text-3); font: 10px var(--font-mono); }
+.inline-diagram .zone-label { fill: var(--text-3); font: 700 10px var(--font-mono); letter-spacing: .1em; }
+.fig-cap { padding: 0 22px 20px; color: var(--text-3); font: 10px/1.5 var(--font-mono); letter-spacing: .02em; }
+@media (max-width: 1220px) { .doc-shell { grid-template-columns: 1fr; padding: 0 18px; } .doc-shell__spacer { display: none; } .doc-shell__main { grid-column: 1; grid-row: 2; } .doc-shell__toc { grid-column: 1; grid-row: 1; position: static; border-left: 0; border-bottom: 1px solid var(--hairline); padding: 0 0 14px; } }
+@media (max-width: 900px) { .grid-3 { grid-template-columns: repeat(2, minmax(0,1fr)); } .hero { min-height: 420px; } }
+@media (max-width: 700px) { body { padding: 18px 0 60px; } .doc-shell { padding: 0 12px; } .glass { padding: 22px 16px; border-radius: 20px; } .hero { min-height: 480px; } .hero::after { right: 18px; top: 20px; font-size: 9px; } .hero h1 { font-size: clamp(30px, 10vw, 44px); padding-right: 22px; } .grid-2, .grid-3 { grid-template-columns: 1fr; } .inline-diagram { min-width: 820px; } table { display: block; overflow-x: auto; white-space: nowrap; } .summary { grid-template-columns: 1fr; } }
+@media print { body { padding: 0; background: var(--white); } .doc-shell { display: block; } .doc-shell__spacer, .doc-shell__toc, .theme-toggle { display: none; } .glass, .diagram-panel, .ladder-wrap { box-shadow: none; break-inside: avoid; } }
+</style>
+<style>
+/* ===== backlog-mapping specific ===== */
+.status-badge{display:inline-flex;align-items:center;gap:10px;padding:9px 16px 9px 14px;border-radius:999px;background:color-mix(in srgb, var(--coral) 10%, transparent);border:1px dashed color-mix(in srgb, var(--coral) 46%, var(--hairline));color:color-mix(in srgb, var(--coral) 78%, var(--text-1));font:700 11px/1.3 var(--font-mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:20px}
+.status-badge svg{width:16px;height:16px;flex:0 0 16px;stroke:currentColor;fill:none;stroke-width:1.8}
+.icon-circle{width:38px;height:38px;flex:0 0 38px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--accent) 12%, transparent);border:1px solid color-mix(in srgb, var(--accent) 26%, var(--hairline));color:var(--accent-ink);margin-bottom:12px}
+.icon-circle svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7}
+.decoder-card h4{text-transform:none;letter-spacing:0;font:700 15px/1.3 var(--font-body);color:var(--text-1);margin-bottom:8px}
+.decoder-card .term-def{font-size:13.5px;color:var(--text-2);line-height:1.55}
+.decoder-card .term-eng{margin-top:10px;padding-top:10px;border-top:1px dashed var(--hairline);font-size:12px;color:var(--text-3);line-height:1.5}
+.decoder-card .term-eng strong{color:var(--text-2);font-weight:600}
+/* ladder */
+.ladder-wrap{margin-top:26px;overflow:hidden;border:1px solid var(--hairline);border-radius:var(--doc-radius-xl);background:color-mix(in srgb, var(--doc-surface) 76%, transparent);box-shadow:var(--doc-shadow)}
+.ladder-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--hairline)}
+.ladder-bar h3{margin:0;font:700 15px/1.2 var(--font-body)}
+.ladder-bar span{color:var(--text-3);font:700 10px/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
+.ladder-scroll{overflow-x:auto;padding:38px 24px 10px}
+.ladder{display:flex;align-items:flex-end;gap:16px;min-width:960px;height:320px}
+.ladder-step{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;height:var(--h);padding:16px 16px 18px;border-radius:16px 16px 6px 6px;border:1px solid color-mix(in srgb, var(--accent) 24%, var(--hairline));background:color-mix(in srgb, var(--accent) var(--tint), var(--doc-surface-strong));position:relative;box-shadow:inset 0 1px 0 color-mix(in srgb, var(--white) 30%, transparent)}
+.ladder-step .rung-num{position:absolute;top:-15px;left:16px;width:29px;height:29px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 12px/1 var(--font-mono);background:var(--accent);color:#fff;box-shadow:0 5px 12px color-mix(in srgb, var(--accent) 45%, transparent)}
+.ladder-step .rung-icon{width:22px;height:22px;color:var(--accent-ink);stroke:currentColor;fill:none;stroke-width:1.7;margin-top:4px}
+.ladder-step h4{text-transform:none;letter-spacing:0;font:700 13.5px/1.3 var(--font-body);color:var(--text-1);margin:6px 0 0}
+.ladder-step .integration{font:600 10px/1.4 var(--font-mono);color:var(--text-3);letter-spacing:.01em}
+.ladder-step .catches{font-size:11.5px;color:var(--text-2);line-height:1.45}
+.ladder-step .catches b{color:var(--accent-ink);font-weight:700}
+.idea-detail{margin-top:18px}
+.idea-detail .row{align-items:center;margin-bottom:8px}
+.idea-detail h4{text-transform:none;letter-spacing:0;font:700 15px/1.3 var(--font-body);color:var(--text-1);margin:0}
+/* fallback diagram tint */
+.inline-diagram .node.fallback{fill:var(--doc-coral-soft);stroke:var(--coral)}
+/* theme cards */
+.theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.theme-card{position:relative;background:var(--doc-surface-strong);border:1px solid var(--hairline);border-radius:var(--doc-radius-md);padding:18px 20px 18px 54px;box-shadow:inset 0 1px 0 color-mix(in srgb, var(--white) 24%, transparent)}
+.theme-card .num{position:absolute;left:16px;top:18px;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 12px/1 var(--font-mono);background:var(--chip-bg);color:var(--text-2);border:1px solid var(--hairline)}
+.theme-card h4{margin-bottom:6px;text-transform:none;letter-spacing:0;font:700 14px/1.35 var(--font-body);color:var(--text-1)}
+.theme-card p{margin:0;font-size:13px}
+.theme-card.wide{grid-column:1/-1}
+/* questions panel */
+.questions-panel{border-radius:var(--doc-radius-lg);border:1px solid color-mix(in srgb, var(--accent) 28%, var(--hairline));background:color-mix(in srgb, var(--accent) 8%, var(--doc-surface));padding:24px 26px;box-shadow:inset 0 1px 0 color-mix(in srgb, var(--white) 30%, transparent)}
+.questions-panel .q-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.questions-panel .q-head svg{width:20px;height:20px;color:var(--accent-ink);stroke:currentColor;fill:none;stroke-width:1.7}
+.questions-panel .q-head h4{margin:0;text-transform:none;letter-spacing:0;font:700 15px/1.3 var(--font-body);color:var(--text-1)}
+.questions-panel ol{padding-left:22px;margin:0;display:flex;flex-direction:column;gap:12px}
+.questions-panel li{color:var(--text-2);font-size:13.5px;line-height:1.55}
+.questions-panel li strong{color:var(--text-1)}
+/* table wrap */
+.table-wrap{overflow-x:auto;border-radius:var(--doc-radius-md)}
+table.wide{min-width:980px}
+@media (max-width: 900px) { .theme-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .ladder { min-width: 880px; } }
+</style>
+</head>
+<body data-theme="light">
+<button class="theme-toggle" id="themeBtn" aria-label="Toggle light or dark theme" title="Toggle theme">&#9790;</button>
+<svg class="icon-sprite" aria-hidden="true" focusable="false">
+<symbol id="icon-agent" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"></rect><path d="M12 8V4M9 3h6"></path><circle cx="9.5" cy="13.5" r="1.3"></circle><circle cx="14.5" cy="13.5" r="1.3"></circle><path d="M8 19v2M16 19v2"></path></symbol>
+<symbol id="icon-skill" viewBox="0 0 24 24"><path d="M12 3 21 7.5v9L12 21 3 16.5v-9Z"></path><path d="M3 7.5 12 12l9-4.5M12 12v9"></path></symbol>
+<symbol id="icon-mcp" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0Z"></path><path d="M12 17v4"></path></symbol>
+<symbol id="icon-copilot" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1.1 2.1h4.8c.1-.9.5-1.6 1.1-2.1A6 6 0 0 0 12 3Z"></path></symbol>
+<symbol id="icon-gate" viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3Z"></path><path d="M8 12h8"></path></symbol>
+<symbol id="icon-scan" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"></path><path d="M18 3v4h-4M6 21v-4h4"></path></symbol>
+<symbol id="icon-ledger" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></symbol>
+<symbol id="icon-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M8.5 8.5a5 5 0 0 1 7 0M5.6 5.6a9 9 0 0 1 12.8 0M15.5 15.5a5 5 0 0 1-7 0M18.4 18.4a9 9 0 0 1-12.8 0"></path></symbol>
+<symbol id="icon-deck" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M7 8l4 3 3-2 3 3"></path></symbol>
+<symbol id="icon-extract" viewBox="0 0 24 24"><path d="M4 4h16l-6 8v6l-4 2v-8Z"></path></symbol>
+<symbol id="icon-ir" viewBox="0 0 24 24"><path d="M9 4c-2 0-3 1-3 3v3c0 1-1 2-2 2 1 0 2 1 2 2v3c0 2 1 3 3 3"></path><path d="M15 4c2 0 3 1 3 3v3c0 1 1 2 2 2-1 0-2 1-2 2v3c0 2-1 3-3 3"></path></symbol>
+<symbol id="icon-htmlcard" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 9h18"></path><circle cx="6" cy="7" r=".6" fill="currentColor" stroke="none"></circle><circle cx="8.4" cy="7" r=".6" fill="currentColor" stroke="none"></circle></symbol>
+<symbol id="icon-graphlink" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.2"></circle><circle cx="18" cy="6" r="2.2"></circle><circle cx="12" cy="18" r="2.2"></circle><path d="M8 6.8 16 6.8M7 8l4 8M17 8l-4 8"></path></symbol>
+<symbol id="icon-warn" viewBox="0 0 24 24"><path d="M12 3 22 20H2Z"></path><path d="M12 9v5M12 17h.01"></path></symbol>
+<symbol id="icon-question" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7"></path><path d="M12 17h.01"></path></symbol>
+</svg>
+<div class="doc-shell">
+<div class="doc-shell__spacer"></div>
+<main class="doc-shell__main">
+
+<header class="glass hero" id="hero">
+<div class="eyebrow">Leadership backlog mapping &middot; Owner Yurii Oksamytnyi &middot; 6 August 2026</div>
+<div class="status-badge"><svg><use href="#icon-warn"></use></svg><span>Internal working artifact &mdash; brainstorm / stand-up prep, not for Confluence publication</span></div>
+<h1>BPC / AI Playbooks Hub <em>leadership backlog mapping and brainstorm prep</em></h1>
+<p class="lede">About 70 percent of the leadership backlog is already covered by the v3.1 architecture review under different names. The genuinely new work concentrates in three areas &mdash; a component-level corpus of Agent Hub assets, automated playbook creation from existing metadata repositories, and deterministic diagram extraction &mdash; and this document walks through the vocabulary, the monitoring brainstorm, the diagram-extraction sketch, and the full backlog-to-review mapping so a stand-up can move fast without re-litigating what is already written.</p>
+<div class="summary">
+<div class="glass"><div class="lab">Backlog coverage</div><div class="num accent">~70%</div><div class="sub">already covered by the v3.1 review, under different names</div></div>
+<div class="glass"><div class="lab">New work areas</div><div class="num accent">3</div><div class="sub">component corpus, automated playbooks, diagram extraction</div></div>
+<div class="glass"><div class="lab">Monitoring ladder</div><div class="num accent">5</div><div class="sub">prevention ideas, each catching what the previous rung missed</div></div>
+<div class="glass"><div class="lab">Backlog items mapped</div><div class="num accent">17</div><div class="sub">every leadership backlog line cross-referenced against v3.1 IDs</div></div>
+</div>
+<p style="margin-top:14px"><small>Sources: leadership backlog and customer-feedback tables (Confluence, 29 Jul &ndash; 06 Aug 2026); canonical IDs from the architecture review (v3.1).</small></p>
+</header>
+
+<!-- 01 ORIENTATION -->
+<section id="orientation" class="glass">
+<div class="sec-head"><h2>Orientation</h2><span class="num">01</span></div>
+<p>About 70 percent of the leadership backlog is already covered by the v3.1 review under different names. The genuinely new work concentrates in three areas: a component-level corpus (Agent Hub assets &mdash; agents, skills, MCP servers), automated playbook creation from existing metadata repositories, and deterministic diagram extraction. Everything else maps onto IDs the review already defines.</p>
+<div class="panel-warm" style="margin-top:18px">
+<h4>Positioning for stand-ups</h4>
+<p>The follow-on programme in the review is the delivery vehicle for this backlog, not a competing plan. <strong>Prod readiness</strong> (<code>DTAA-444</code>, end of September) is the clearest example &mdash; Outcome C of the review is that baseline, already written.</p>
+</div>
+</section>
+
+<!-- 02 DECODER -->
+<section id="decoder" class="glass">
+<div class="sec-head"><h2>Decoder <em>what Agent, Skill, and MCP mean in this backlog</em></h2><span class="num">02</span></div>
+<p>The vocabulary comes from the internal Agent Hub / marketplace initiative &mdash; Elaine, 03 Aug: the solution should be linked to the agent inventory being developed as part of Agent Hub. The definitions below are the standard agent-ecosystem ones, catalogued as enterprise assets.</p>
+<div class="grid-3" style="margin-top:18px">
+<div class="panel decoder-card">
+<div class="icon-circle"><svg><use href="#icon-agent"></use></svg></div>
+<h4>Agent</h4>
+<p class="term-def">A deployed AI agent registered in the Agent Inventory (Agent Hub) with owner, capability, model, and infrastructure metadata.</p>
+<p class="term-eng"><strong>Engineering translation:</strong> a running LLM-plus-tools service, catalogued as a reusable enterprise asset.</p>
+</div>
+<div class="panel decoder-card">
+<div class="icon-circle"><svg><use href="#icon-skill"></use></svg></div>
+<h4>Skill</h4>
+<p class="term-def">A reusable packaged capability (prompt + procedure + resources) published to the marketplace (<code>DTAA-1169</code>).</p>
+<p class="term-eng"><strong>Engineering translation:</strong> a versioned instruction/resource bundle an agent can load.</p>
+</div>
+<div class="panel decoder-card">
+<div class="icon-circle"><svg><use href="#icon-mcp"></use></svg></div>
+<h4>MCP</h4>
+<p class="term-def">A Model Context Protocol server &mdash; a reusable tool/data connector, catalogued internally.</p>
+<p class="term-eng"><strong>Engineering translation:</strong> a standard MCP server exposing tools or data behind the approved gateway.</p>
+</div>
+</div>
+<p style="margin-top:18px">What the three recommendation items (<em>Agent recommendation</em>, <em>Skill recommendations</em>, <em>MCP recommendations</em>) actually require: extend BPC retrieval from the use-case level to the component level. Today the platform matches &ldquo;your idea resembles UC-X.&rdquo; The ask is &ldquo;for your idea, agent A, skill S, and MCP M already exist &mdash; use them directly&rdquo; (Ross Stokoe, 06 Aug: reusable artifacts instead of guidance text).</p>
+<div class="callout callout--teal" style="margin-top:16px">
+<p><strong>Key insight: new corpus, not a new system.</strong> The graph already carries <code>EMPLOYS_AGENT</code> edges. The work is new node types (Agent, Skill, MCPServer), metadata ingestion from the Agent Hub inventory, and the same bounded retrieval channels pointed at the new corpus &mdash; the <code>RET-001</code> / <code>CARD-001</code> machinery over a new node population. Supporting evidence from the feedback itself (Elaine/Sofia, 03 Aug): the focus should be on agent and skills metadata rather than use cases, because similar use cases are unlikely to be exact matches. Component-level matching is where retrieval precision actually lives.</p>
+</div>
+</section>
+
+<!-- 03 MONITORING LADDER -->
+<section id="monitoring" class="glass">
+<div class="sec-head">
+<h2>Ongoing Monitoring <em>a five-idea maturity ladder</em></h2>
+<div class="row"><span class="pill accent">Top priority</span><span class="num">03</span></div>
+</div>
+<p>The gap being closed: today the duplicate check is user-initiated &mdash; it only fires when someone asks. Prevention means the platform watches continuously. The motivating scenario from Marcin: a developer finds an existing prototype, builds a parallel one anyway, and nothing records that this happened.</p>
+<p>The five ideas are not competitors &mdash; they form a ladder. Each rung catches what the previous one missed.</p>
+
+<div class="ladder-wrap" aria-label="Five-idea monitoring ladder, rung 1 to rung 5">
+<div class="ladder-bar"><h3>Five-idea maturity ladder</h3><span>each rung catches what the previous rung missed</span></div>
+<div class="ladder-scroll">
+<div class="ladder">
+<div class="ladder-step" style="--h:64%;--tint:6%">
+<span class="rung-num">1</span>
+<svg class="rung-icon"><use href="#icon-copilot"></use></svg>
+<span class="pill accent">Good cop</span>
+<h4>Draft-time copilot</h4>
+<span class="integration">Ideation form / intake draft</span>
+<p class="catches"><b>Catches:</b> duplication before it hardens</p>
+</div>
+<div class="ladder-step" style="--h:74%;--tint:11%">
+<span class="rung-num">2</span>
+<svg class="rung-icon"><use href="#icon-gate"></use></svg>
+<span class="pill accent">Bad cop</span>
+<h4>Submission-time gate</h4>
+<span class="integration">AIRCO/AIG submission (SNOW or GAIP)</span>
+<p class="catches"><b>Catches:</b> duplicates at the formal boundary, with forced justification</p>
+</div>
+<div class="ladder-step" style="--h:84%;--tint:16%">
+<span class="rung-num">3</span>
+<svg class="rung-icon"><use href="#icon-scan"></use></svg>
+<span class="pill accent">Monitor</span>
+<h4>Continuous corpus re-scan</h4>
+<span class="integration">Nightly job over the existing graph</span>
+<p class="catches"><b>Catches:</b> convergence between initiatives that passed earlier checks</p>
+</div>
+<div class="ladder-step" style="--h:93%;--tint:21%">
+<span class="rung-num">4</span>
+<svg class="rung-icon"><use href="#icon-ledger"></use></svg>
+<span class="pill accent">Auditor</span>
+<h4>Ignored-advice ledger</h4>
+<span class="integration">Verdict + evidence log, governance councils</span>
+<p class="catches"><b>Catches:</b> advice shown, divergence chosen anyway &mdash; Marcin&rsquo;s exact scenario</p>
+</div>
+<div class="ladder-step" style="--h:100%;--tint:26%">
+<span class="rung-num">5</span>
+<svg class="rung-icon"><use href="#icon-radar"></use></svg>
+<span class="pill accent">Outside-in</span>
+<h4>Estate monitoring</h4>
+<span class="integration">Agent Inventory / GAIP / SNOW / repo creation</span>
+<p class="catches"><b>Catches:</b> initiatives that never asked the platform at all</p>
+</div>
+</div>
+</div>
+<p class="fig-cap">Rungs are additive, not competing &mdash; rung 5 does not replace rungs 1&ndash;4, it reaches the initiatives that never touched the platform to begin with.</p>
+</div>
+
+<div class="idea-detail panel">
+<div class="row"><span class="pill accent">Idea 1</span><h4>Draft-time copilot (good cop)</h4></div>
+<p>At ideation, a non-blocking advisory: similar existing use cases, reusable agents/skills. Logged with the <code>TEL-001</code> principle (category and IDs, never raw query text). The measurable question: did teams that saw the hint change course? That metric is the business case for the rest of the ladder.</p>
+</div>
+<div class="idea-detail panel">
+<div class="row"><span class="pill accent">Idea 2</span><h4>Submission-time gate (bad cop)</h4></div>
+<p>Every new use-case submission automatically runs the matcher; a PARTIAL/COVERED verdict attaches a duplication report to the AIG record and requires a divergence-justification field before approval proceeds. This is <code>&sect;5.12</code> (structured AIRCO draft matching) wired into the submission system. David Rice proposed exactly this shape (05 Aug), including the acceptance that initial friction drives users to seek guidance earlier. Deterministic, auditable, MRM-friendly.</p>
+</div>
+<div class="idea-detail panel">
+<div class="row"><span class="pill accent">Idea 3</span><h4>Continuous corpus re-scan</h4></div>
+<p>A nightly job recomputes pairwise similarity over new/changed use cases and component metadata &mdash; productizing the <code>SIMILAR_TO</code> edges that already exist &mdash; and emits a convergence report: clusters of overlapping in-flight initiatives, notified to owners and AIG. Catches drift that slipped past a point-in-time check.</p>
+</div>
+<div class="idea-detail panel">
+<div class="row"><span class="pill accent">Idea 4</span><h4>Ignored-advice ledger</h4></div>
+<p>When a team is shown an existing prototype (verdict + evidence) and proceeds anyway, record that fact. Periodic report to governance: N teams proceeded despite similarity above threshold, with links. Sold as a reuse-leakage metric for councils, not as automated enforcement &mdash; enforcement framing would push users to route around the tool. Tracked at use-case-ID level, never at query-text level (<code>PRIV-001</code>).</p>
+</div>
+<div class="idea-detail panel">
+<div class="row"><span class="pill accent">Idea 5</span><h4>Estate monitoring (outside-in)</h4></div>
+<p>Monitor the exhaust of the estate rather than submissions: new registrations in the Agent Inventory, GAIP model registrations, SNOW demand tickets, repository creation. Each event runs through the matcher; alert when something appears that never went through any duplicate check. The truest prevention and the heaviest integration &mdash; propose as a pilot with one source (Agent Inventory is the most accessible and the most aligned with the component pivot).</p>
+</div>
+</section>
+
+<!-- 04 DIAG-001 -->
+<section id="diag-001" class="glass">
+<div class="sec-head"><h2>DIAG-001 <em>deterministic diagram extraction from PPTX</em></h2><span class="num">04</span></div>
+<p>The complaint: PowerPoint decks degrade in ingestion and diagrams cannot be reconstructed; the wish is interactive, animated diagrams. The right architecture is extraction at ingestion time, not diagram understanding at query time &mdash; PPTX is XML, not pixels. Shapes, connectors, groups, z-order, and text are structured OOXML, and a deterministic extractor (python-pptx level) recovers a graph from most architecture slides: boxes become nodes, connectors become edges, grouping becomes containment. No LLM in the primary path.</p>
+
+<div class="diagram-panel" aria-label="DIAG-001 pipeline, PPTX to typed IR to interactive HTML and graph">
+<div class="diagram-bar"><h3>Extraction pipeline: PPTX &rarr; typed IR &rarr; interactive HTML + graph</h3><span>deterministic-first, vision fallback for images</span></div>
+<div class="diagram-scroll">
+<svg class="inline-diagram" viewBox="0 0 1440 350" role="img" aria-labelledby="diag-flow-title diag-flow-desc">
+<title id="diag-flow-title">DIAG-001 extraction pipeline</title>
+<desc id="diag-flow-desc">A PPTX deck runs through a deterministic extractor into a typed JSON intermediate representation, which fans out into an interactive HTML artifact and a queryable, linkable graph. Image-only diagrams route through a vision-model fallback and a human-confirm gate before landing in the same IR, flagged as lossy and unverified.</desc>
+<defs>
+<marker id="diag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="var(--text-2)"></path></marker>
+<marker id="diag-arrow-coral" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="var(--coral)"></path></marker>
+</defs>
+<rect class="zone" x="16" y="16" width="1408" height="196" rx="18"></rect>
+<text class="zone-label" x="38" y="41">PRIMARY PATH &mdash; DETERMINISTIC, NO LLM</text>
+<rect class="node" x="40" y="90" width="170" height="70" rx="12"></rect>
+<use href="#icon-deck" x="54" y="112" width="22" height="22" style="color:var(--accent)"></use>
+<text x="90" y="120">PPTX deck</text><text class="small" x="90" y="138">OOXML: shapes, groups</text>
+<path class="edge" d="M210 125H236"></path>
+<rect class="node teal" x="236" y="90" width="220" height="70" rx="12"></rect>
+<use href="#icon-extract" x="250" y="112" width="22" height="22" style="color:var(--teal)"></use>
+<text x="286" y="120">Deterministic extractor</text><text class="small" x="286" y="138">python-pptx level</text>
+<path class="edge" d="M456 125H482"></path>
+<rect class="node plum" x="482" y="90" width="220" height="70" rx="12"></rect>
+<use href="#icon-ir" x="496" y="112" width="22" height="22" style="color:var(--plum)"></use>
+<text x="536" y="120">Typed IR (JSON)</text><text class="small" x="536" y="138">nodes, edges, groups, anchor</text>
+<path class="edge" d="M702 110H742M694 122 730 60 750 60"></path>
+<path class="edge" d="M702 140H742M694 128 730 190 750 190"></path>
+<rect class="node green" x="750" y="30" width="250" height="66" rx="12"></rect>
+<use href="#icon-htmlcard" x="764" y="51" width="22" height="22" style="color:var(--green)"></use>
+<text x="800" y="59">Interactive HTML</text><text class="small" x="800" y="77">per card; animation is glaze</text>
+<rect class="node" x="750" y="162" width="250" height="66" rx="12"></rect>
+<use href="#icon-graphlink" x="764" y="183" width="22" height="22" style="color:var(--accent)"></use>
+<text x="800" y="191">Graph</text><text class="small" x="800" y="209">queryable + linkable diagrams</text>
+<text class="small" x="750" y="242" style="fill:var(--text-3)">feeds Automate Playbook Creation &mdash; candidate APC-001</text>
+<rect class="zone" x="16" y="240" width="700" height="94" rx="18"></rect>
+<text class="zone-label" x="38" y="265">FALLBACK &mdash; MESSY DECKS</text>
+<rect class="node fallback" x="40" y="274" width="640" height="46" rx="12"></rect>
+<text x="60" y="293">Vision-model fallback (approved gateway) + human-confirm gate</text>
+<text class="small" x="60" y="311">image-only diagrams &mdash; output marked lossy/unverified until confirmed</text>
+<path class="edge dash" d="M360 274V210 130H482"></path>
+</svg>
+</div>
+<p class="fig-cap">The dashed line shows the fallback still landing in the same typed IR &mdash; flagged lossy/unverified until a human confirms it, never trusted silently.</p>
+</div>
+
+<div class="panel-warm" style="margin-top:18px">
+<h4>The hidden jackpot</h4>
+<p>The IR also lands in the graph, making diagrams queryable and linkable to each other. The CiB AIG leads asked for precisely this (03 Aug): different architectural diagrams do not link together without a proper extraction tool. The IR is that linking layer. The same IR feeds Automate Playbook Creation (pre-filling playbooks from existing artifacts).</p>
+</div>
+
+<div class="callout callout--coral" style="margin-top:16px">
+<p><strong>Honest caveats, stated up front.</strong> Real decks are messy &mdash; detached connectors, diagrams pasted as images, SmartArt. The pipeline is deterministic-first, with a vision-model fallback through the approved gateway for image-only diagrams (output marked lossy/unverified), and a human-confirm step before the IR is trusted.</p>
+<p style="margin-top:10px"><strong>Proposal shape.</strong> A one-week spike on ten real decks with an extraction-fidelity metric, then an evidence-gated decision. No product commitment before the spike numbers exist.</p>
+</div>
+</section>
+
+<!-- 05 BACKLOG MAPPING TABLE -->
+<section id="mapping" class="glass">
+<div class="sec-head"><h2>Backlog mapping table</h2><span class="num">05</span></div>
+<div class="row" style="margin-bottom:14px">
+<span class="pill ok">Covered</span><span class="pill warn">Partial</span><span class="pill info">New corpus, same architecture</span><span class="pill plum">New</span>
+</div>
+<div class="table-wrap">
+<table class="wide">
+<thead><tr><th style="width:260px">Backlog item</th><th style="width:70px">Priority</th><th style="width:200px">Review ID(s)</th><th style="width:230px">Verdict</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Playbooks Scope Extension (~90 &rarr; all PoC/Pilot/Prod)</td><td>Top</td><td><code>&sect;7 scaling ladder</code>, <code>DATA-001</code></td><td><span class="pill ok">Covered as method</span></td><td>Scale evidence ladder is written; corpus onboarding is the new work</td></tr>
+<tr><td>Ongoing Monitoring (prevention)</td><td>Top</td><td><code>&sect;5.12</code>, <code>PROD-001</code>, <code>TEL-001</code></td><td><span class="pill ok">Core covered</span></td><td>Five-idea ladder above is the brainstorm deliverable</td></tr>
+<tr><td>Operating Model (AIG process, SNOW or GAIP)</td><td>Top</td><td><code>&sect;1.2 MRM gate</code>, <code>&sect;5.11 review workflow</code></td><td><span class="pill warn">Partial</span></td><td>Process integration itself is new; the governance skeleton exists</td></tr>
+<tr><td>Agent recommendation</td><td>H</td><td><code>RET-001</code> + <code>CARD-001</code> machinery</td><td><span class="pill info">New corpus, same architecture</span></td><td>Needs Agent Hub inventory access</td></tr>
+<tr><td>Skill recommendations (<code>DTAA-1169</code>)</td><td>H</td><td><code>RET-001</code> + <code>CARD-001</code> machinery</td><td><span class="pill info">New corpus, same architecture</span></td><td>Marketplace metadata schema needed</td></tr>
+<tr><td>Enhanced report (artifacts over guidance text)</td><td>M/H</td><td><code>RET-001</code>, <code>&sect;5.4</code></td><td><span class="pill warn">Partial</span></td><td>Component-level result rendering</td></tr>
+<tr><td>Data product recommendations (<code>DTAA-1168</code>)</td><td>M/H</td><td>&mdash;</td><td><span class="pill plum">New</span></td><td>Governed data products as a further node type; owners and access paths</td></tr>
+<tr><td>MCP recommendations</td><td>M/H</td><td><code>RET-001</code> + <code>CARD-001</code> machinery</td><td><span class="pill info">New corpus, same architecture</span></td><td>Catalogue source TBC</td></tr>
+<tr><td>Expert routing</td><td>L/M</td><td><code>REV-001</code>, owner metadata</td><td><span class="pill warn">Partial</span></td><td>People-graph on top of existing ownership data</td></tr>
+<tr><td>Architecture library</td><td>L/M</td><td><code>CARD-001</code> (schema discipline)</td><td><span class="pill plum">New</span></td><td>Reference patterns as a first-class corpus</td></tr>
+<tr><td>Prod readiness (<code>DTAA-444</code>, end of September)</td><td>H</td><td><code>&sect;3.5</code>, Outcome C entire</td><td><span class="pill ok">Covered</span></td><td>The review is the baseline document for this item</td></tr>
+<tr><td>Automate Playbook Creation</td><td>H</td><td>&mdash; (candidate <code>APC-001</code>)</td><td><span class="pill plum">New, large</span></td><td>Feeds on DIAG-001 IR + governance artifacts (Group Infra WG, 05 Aug)</td></tr>
+<tr><td>CxO Integration (<code>DTAA-1137</code>)</td><td>M/H</td><td>&mdash;</td><td><span class="pill plum">New</span></td><td>CxO data assets as baseline input</td></tr>
+<tr><td>Enhanced scoring mechanism (<code>DTAA-449</code>)</td><td>M</td><td><code>EVID-001</code>, <code>CAL-001</code></td><td><span class="pill ok">Covered almost verbatim</span></td><td>Metadata-repository-informed quality scoring</td></tr>
+<tr><td>Playbook Self Service (<code>DTAA-1136</code>)</td><td>L/M</td><td><code>CARD-001</code>, <code>&sect;5.10</code></td><td><span class="pill warn">Partial</span></td><td>In-app authoring on top of the validated schema</td></tr>
+<tr><td>HSBC search and retrieve capability (Helios etc.)</td><td>M/H</td><td><code>&sect;7</code>, <code>RET-001</code></td><td><span class="pill ok">Covered as pattern</span></td><td>The bounded pipeline is the exportable pattern</td></tr>
+<tr><td>AI Playbooks Hub Documentation</td><td>M/H</td><td><code>DOC-002</code></td><td><span class="pill warn">Partial</span></td><td>In-app roadmap visibility; Tech Airco roadmap ask (06 Aug)</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- 06 FEEDBACK DIGEST -->
+<section id="feedback" class="glass">
+<div class="sec-head"><h2>Customer-feedback digest <em>five themes</em></h2><span class="num">06</span></div>
+<div class="theme-grid">
+<div class="theme-card"><span class="num">1</span>
+<h4>Integration over standalone (the loudest theme)</h4>
+<p>Josh/Mervin (GAIP end-to-end lifecycle), Dave/Lucy (Group AI platform first), Sofia/Elaine/Stephen (inside the enterprise process), David Rice (SNOW analyzer). Nobody wants another portal.</p>
+</div>
+<div class="theme-card"><span class="num">2</span>
+<h4>Component-level reuse over use-case matching</h4>
+<p>Doug and the AIG team (real value is component-level reuse), Elaine/Sofia (agent and skills metadata over use cases). Confirms the <a href="#decoder">component-level pivot in the decoder section above</a>.</p>
+</div>
+<div class="theme-card"><span class="num">3</span>
+<h4>Single version of truth for metadata; generate, do not ask</h4>
+<p>Elaine (align with the Agent Hub inventory; do not ask delivery teams for more documentation &mdash; generate playbooks from existing governance artifacts), Group Infra WG (<code>UC0004442</code> MRM artifacts and AI Review Council minutes as sources).</p>
+</div>
+<div class="theme-card"><span class="num">4</span>
+<h4>Strategic signals</h4>
+<p>James Fisher (29 Jul): the AI use case concept may disappear with IT service releases &mdash; the durable unit of the corpus is the component, which strengthens theme 2. David Rice: expand beyond data AI to all AI use cases organization-wide.</p>
+</div>
+<div class="theme-card wide"><span class="num">5</span>
+<h4>Quality and trust of the knowledge base</h4>
+<p>Roshini (strategic-alignment scoring, process-mapping requirements at ideation, document uploads with standardized templates), Dave/Lucy (data completeness and convergence strategy).</p>
+</div>
+</div>
+</section>
+
+<!-- 07 TENSIONS / QUESTIONS -->
+<section id="questions" class="glass">
+<div class="sec-head"><h2>Tensions and open questions</h2><span class="num">07</span></div>
+<div class="questions-panel">
+<div class="q-head"><svg><use href="#icon-question"></use></svg><h4>Open questions for Marcin</h4></div>
+<ol>
+<li><strong>SNOW vs Group AI platform for the gate.</strong> David Rice suggested a ServiceNow analyzer (05 Aug); the Dave/Lucy group agreed to prioritize the Group AI platform over ServiceNow (04 Aug). Which system is the system of record for the submission gate (Idea 2)?</li>
+<li><strong>The durable corpus unit.</strong> If the AI use case concept can disappear (James Fisher), should new ingestion investment target components (agents, skills, MCP servers, data products) as the primary node type, with use cases as one lens over them?</li>
+<li><strong>Access prerequisites.</strong> Agent Hub inventory API and metadata schema; DTAA Jira visibility (<code>DTAA-444</code> / <code>DTAA-449</code> / <code>DTAA-1136</code> / <code>DTAA-1137</code> / <code>DTAA-1168</code> / <code>DTAA-1169</code> are authentication-walled in the shared table); knowledge-layer alignment contact (Annmarie).</li>
+<li><strong>Ownership of the divergence-justification policy</strong> for the bad-cop gate: AIG, MRM, or the platform team?</li>
+<li><strong>Sequencing of scope extension</strong> (~90 pilot &rarr; all PoC/Pilot/Prod &rarr; beyond data AI): which expansion happens before September production readiness?</li>
+</ol>
+</div>
+</section>
+
+<!-- 08 CANDIDATE V3.2 IDs -->
+<section id="candidates" class="glass">
+<div class="sec-head"><h2>Candidate IDs for a future v3.2 <em>only if adopted</em></h2><span class="num">08</span></div>
+<table>
+<thead><tr><th style="width:120px">Candidate</th><th>Scope</th><th style="width:240px">Feeds from</th></tr></thead>
+<tbody>
+<tr><td><code>MON-001</code></td><td>The five-rung monitoring ladder as one programme with per-rung gates</td><td><code>&sect;5.12</code>, <code>TEL-001</code>, <code>PRIV-001</code></td></tr>
+<tr><td><code>COMP-001</code></td><td>Component-level corpus: Agent / Skill / MCPServer / DataProduct node types + inventory ingestion</td><td><code>RET-001</code>, <code>CARD-001</code></td></tr>
+<tr><td><code>APC-001</code></td><td>Automated playbook creation from metadata repositories and governance artifacts</td><td><code>COMP-001</code>, <code>DIAG-001</code></td></tr>
+<tr><td><code>DIAG-001</code></td><td>Deterministic PPTX diagram extraction: typed IR + interactive HTML render + graph linking</td><td>One-week spike first</td></tr>
+</tbody>
+</table>
+<p style="margin-top:14px">The v3.1 review stays untouched until Marcin adopts any of these; adopted items enter as a v3.2 delta with the same evidence-gated discipline as the rest of the backlog.</p>
+<footer style="border-top:1px solid var(--hairline);padding-top:16px;margin-top:24px"><small>Internal working artifact, generated 6 August 2026 &mdash; brainstorm and stand-up prep, not a Confluence publication page. Companion to the architecture review (v3.1).</small></footer>
+</section>
+
+</main>
+<nav class="doc-shell__toc" aria-label="On this page"><h4>On this page</h4><a href="#orientation">Orientation</a><a href="#decoder">Decoder</a><a href="#monitoring">Monitoring ladder</a><a href="#diag-001">DIAG-001</a><a href="#mapping">Backlog mapping</a><a href="#feedback">Feedback digest</a><a href="#questions">Questions for Marcin</a><a href="#candidates">Candidate v3.2 IDs</a></nav>
+</div>
+<script>
+(function () {
+  var key = "jupus_docs_theme";
+  var root = document.documentElement;
+  var body = document.body;
+  var btn = document.getElementById("themeBtn");
+  var stored = localStorage.getItem(key);
+  var preferred = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  function apply(theme) {
+    root.setAttribute("data-theme", theme);
+    body.setAttribute("data-theme", theme);
+    btn.innerHTML = theme === "dark" ? "&#9728;" : "&#9790;";
+    btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+  }
+  apply(stored === "dark" || stored === "light" ? stored : preferred);
+  btn.addEventListener("click", function () {
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    localStorage.setItem(key, next);
+    apply(next);
+  });
+  document.addEventListener("keydown", function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "\\") { e.preventDefault(); btn.click(); }
+  });
+})();
+</script>
+</body>
+</html>

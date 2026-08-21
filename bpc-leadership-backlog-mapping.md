@@ -110,18 +110,63 @@ The v3.1 review stays untouched until Marcin adopts any of these; adopted items 
 
 
 
-▎ I need a structural analysis of this repository: https://alm-github.systems.uk.hsbc/ETIV-core-ai-platform/gaip-agenthub-skills-marketplace
-▎
-▎ Do not summarise what the skills do. I need the shape of the data, not the content. Produce a markdown report covering:
-▎
-▎ 1. Repository layout — top-level directories, and how an individual skill is organised on disk (one folder per skill? which files are present in a typical skill folder? naming conventions?).
-▎ 2. The skill definition format. Extract the exact metadata schema: every distinct field name that appears in skill front-matter or metadata files, how many skills use each field, and which appear mandatory versus optional. Present this as a table of field name, type, frequency, required yes/no.
-▎ 3. Is there a central index, manifest, registry or catalogue file that lists all skills? If so, its path and its schema.
-▎ 4. How a new skill gets added: contribution guide, pull request template, schema validation, CI checks, linting rules, review or approval gates. Quote the rules, not the prose.
-▎ 5. Do skills declare dependencies — required MCP servers, required tools, required knowledge sources, or other skills? Which field carries that, and what proportion of skills populate it?
-▎ 6. Are ownership, version, maturity or lifecycle-status fields present? Which ones, and how consistently populated?
-▎ 7. Do skill descriptions follow a convention such as starting with a trigger phrase? Report the observed patterns and rough proportions.
-▎ 8. Total number of skills, and whether the identifiers match the ones in the Agent Hub skills export.
-▎ 9. Any inconsistencies you notice: malformed front-matter, duplicate identifiers, skills missing required fields, empty descriptions.
-▎
-▎ Output two example skill definitions as skeletons only — field names preserved, all values replaced with placeholders. Do not reproduce actual descriptions or code.
+Structural analysis of the AI Playbooks Hub repository. I need the shape of the code
+and the data, not the code itself. Do not paste source, card content, or real use-case
+text into the report.
+
+1. Completeness scoring
+   - Does completeness scoring live in this repository at all? If yes, give the module
+     path and the entry point. If no, say so explicitly and report any evidence of where
+     it runs instead (API calls, config, service names).
+   - What is the input contract: which field, on which entity, read through which parse
+     path. Give the field name and its expected type/shape.
+   - How is a zero produced? Enumerate every code path that can result in a completeness
+     score of zero, and state for each whether the input was empty, unparsed, unmatched,
+     or absent.
+   - Is the score persisted with any provenance — number of items parsed, catalogue or
+     taxonomy version, source field, computation timestamp? List what is stored alongside
+     the score and what is not.
+   - When does scoring run: at ingestion, on demand, on a schedule, or on card update?
+     Is there a recompute trigger when a card changes after its first score?
+   - Is there a standard taxonomy or reference list that completeness is measured against?
+     Where does it live and is it versioned?
+
+2. Card schema
+   - What front-matter fields does the ingestion parser actually read from a card?
+     Give the full list with types.
+   - Is the parser a fixed field list or does it accept arbitrary keys? Quote the
+     mechanism, not the code.
+   - What happens to a field present in the file but unknown to the parser — dropped,
+     stored, or an error?
+   - Is there any schema validation of cards at ingestion, and what does it do on failure?
+
+3. Graph schema
+   - List every node label and every edge type the ingestion writes.
+   - Are labels and edge types a hardcoded enumeration, or derived from data or config?
+     This determines whether adding a component node type is a config change or a code
+     change — answer that question directly.
+   - How are properties written onto nodes: fixed set or open?
+
+4. Card corpus statistics
+   - Total number of cards.
+   - For each front-matter field, the number and percentage of cards populating it.
+   - Distribution of card body length, so we can see what share are substantially
+     populated versus stubs.
+   - How many cards carry any description of the components, tools, agents or services
+     the use case was built from. This is the single most important number in the report.
+
+5. One specific card
+   - For use case uc0003818: does it exist in the repository, and what is present in the
+     capabilities field — its shape, item count, and whether it parses. Describe the
+     structure only. Do not reproduce the content.
+   - Pick two cards with a healthy completeness score and compare the shape of their
+     capabilities field against uc0003818. Report whether the shapes differ.
+
+6. Search
+   - There is a feature flag selecting a deterministic search path instead of the default.
+     Confirm the flag name, what it switches between, and its default value.
+   - Is input validated before a novelty verdict is produced? If so, where and what does
+     it check?
+
+Output a markdown report. Field names, paths, counts, percentages and flag names are
+fine to include. Card content, source code and real use-case text are not.

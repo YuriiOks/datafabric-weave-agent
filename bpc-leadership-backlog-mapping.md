@@ -107,3 +107,21 @@ The complaint: PowerPoint decks degrade in ingestion and diagrams cannot be reco
 | DIAG-001 | Deterministic PPTX diagram extraction: typed IR + interactive HTML render + graph linking | One-week spike first |
 
 The v3.1 review stays untouched until Marcin adopts any of these; adopted items enter as a v3.2 delta with the same evidence-gated discipline as the rest of the backlog.
+
+
+
+▎ I need a structural analysis of this repository: https://alm-github.systems.uk.hsbc/ETIV-core-ai-platform/gaip-agenthub-skills-marketplace
+▎
+▎ Do not summarise what the skills do. I need the shape of the data, not the content. Produce a markdown report covering:
+▎
+▎ 1. Repository layout — top-level directories, and how an individual skill is organised on disk (one folder per skill? which files are present in a typical skill folder? naming conventions?).
+▎ 2. The skill definition format. Extract the exact metadata schema: every distinct field name that appears in skill front-matter or metadata files, how many skills use each field, and which appear mandatory versus optional. Present this as a table of field name, type, frequency, required yes/no.
+▎ 3. Is there a central index, manifest, registry or catalogue file that lists all skills? If so, its path and its schema.
+▎ 4. How a new skill gets added: contribution guide, pull request template, schema validation, CI checks, linting rules, review or approval gates. Quote the rules, not the prose.
+▎ 5. Do skills declare dependencies — required MCP servers, required tools, required knowledge sources, or other skills? Which field carries that, and what proportion of skills populate it?
+▎ 6. Are ownership, version, maturity or lifecycle-status fields present? Which ones, and how consistently populated?
+▎ 7. Do skill descriptions follow a convention such as starting with a trigger phrase? Report the observed patterns and rough proportions.
+▎ 8. Total number of skills, and whether the identifiers match the ones in the Agent Hub skills export.
+▎ 9. Any inconsistencies you notice: malformed front-matter, duplicate identifiers, skills missing required fields, empty descriptions.
+▎
+▎ Output two example skill definitions as skeletons only — field names preserved, all values replaced with placeholders. Do not reproduce actual descriptions or code.

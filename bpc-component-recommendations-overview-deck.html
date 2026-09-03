@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recommending Reusable Components &mdash; What the Work Is and How It Is Done</title>
+<style>
+:root {
+  --bg-app: linear-gradient(155deg,#F4E3CC 0%,#F7EFE3 60%,#FBFAF7 100%);
+  --bg-aux1: radial-gradient(46% 40% at 12% 8%,rgba(232,159,76,.32),transparent 72%);
+  --bg-aux2: radial-gradient(42% 38% at 92% 96%,rgba(30,95,116,.16),transparent 72%);
+  --bg-base:#EDE7DD; --text-1:#1A1F2E; --text-2:rgba(26,31,46,.72); --text-3:rgba(26,31,46,.50); --text-4:rgba(26,31,46,.36); --hairline:rgba(26,31,46,.10);
+  --surface:#FFF; --surface-2:rgba(255,255,255,.55); --surface-3:#E3DACC; --border:rgba(26,31,46,.18); --white:#FFF; --slate:#1A1F2E; --ivory:#FAF9F5; --oat:#E3DACC;
+  --chip-bg:rgba(255,255,255,.45); --glass-bg:rgba(251,250,247,.55); --glass-bg-2:rgba(251,250,247,.42); --glass-border:rgba(255,255,255,.55); --glass-shadow:0 18px 50px rgba(120,75,30,.14),inset 0 1px 0 rgba(255,255,255,.65);
+  --accent:#E89F4C; --accent-ink:#a86b25; --accent-2:#D45D5D; --accent-soft:rgba(232,159,76,.15); --teal:#1E5F74; --plum:#5C3D7A; --green:#3F7D5C; --coral:#D45D5D; --gold:#F2C94C; --warn:#8A6210;
+  --font-display:"Fraunces","Iowan Old Style","Times New Roman",Georgia,serif; --font-body:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,sans-serif; --font-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --t-display:44px; --t-h1:32px; --t-h2:24px; --t-body:15px; --t-small:13px; --t-micro:11px; --r-1:4px; --r-2:12px; --r-3:18px; --r-4:20px;
+}
+[data-theme="dark"] {
+  --bg-app:linear-gradient(155deg,#141A2A 0%,#1B2438 55%,#221E33 100%); --bg-aux1:radial-gradient(44% 38% at 14% 10%,rgba(217,184,148,.18),transparent 72%); --bg-aux2:radial-gradient(42% 36% at 92% 96%,rgba(92,61,122,.28),transparent 72%); --bg-base:#141A2A;
+  --text-1:#F4ECDF; --text-2:#C7BBA8; --text-3:#948A7B; --text-4:#635B50; --hairline:rgba(217,184,148,.14); --surface:rgba(30,27,40,.92); --surface-2:rgba(28,34,52,.40); --surface-3:#221E33; --border:rgba(244,236,223,.16); --white:#F4ECDF; --slate:#0F0E12; --ivory:#F4ECDF; --oat:#221E33;
+  --chip-bg:rgba(255,255,255,.06); --glass-bg:rgba(28,34,52,.40); --glass-bg-2:rgba(30,27,40,.92); --glass-border:rgba(217,184,148,.14); --glass-shadow:0 18px 56px rgba(0,0,0,.50),inset 0 1px 0 rgba(217,184,148,.10); --accent:#D9B894; --accent-ink:#E2CBA8; --accent-2:#C49A8A; --accent-soft:rgba(217,184,148,.15);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{overflow-x:clip;background:var(--bg-base)}
+body{min-height:100vh;background:var(--bg-aux1),var(--bg-aux2),var(--bg-app);color:var(--text-1);font-family:var(--font-body);font-size:var(--t-body);line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:500;color:var(--text-1)}
+h1 em,h2 em{font-style:italic;font-weight:400;color:var(--accent-ink)}
+p{color:var(--text-2)}
+strong{color:var(--text-1);font-weight:700}
+small{color:var(--text-3);font-size:12px}
+a{color:var(--accent-ink)}
+.eyebrow{font-family:var(--font-mono);font-size:var(--t-micro);text-transform:uppercase;letter-spacing:.08em;color:var(--text-3)}
+.theme-toggle{position:fixed;top:16px;right:16px;z-index:60;width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--text-1);box-shadow:var(--glass-shadow);backdrop-filter:blur(20px);cursor:pointer;font-size:18px;line-height:1}
+.theme-toggle:hover{background:var(--accent-soft);border-color:var(--accent)}
+.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.glass{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--r-4);box-shadow:var(--glass-shadow);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%)}
+.panel{background:rgba(255,255,255,.55);border:1px solid var(--hairline);border-radius:var(--r-3);padding:18px 20px}
+[data-theme="dark"] .panel{background:rgba(28,34,52,.35)}
+.panel-mute{background:rgba(255,255,255,.30);border:1px solid var(--hairline);border-radius:var(--r-3);padding:18px 20px}
+.panel-warm{background:rgba(232,159,76,.10);border:1px solid rgba(232,159,76,.30);border-radius:var(--r-3);padding:18px 20px}
+.panel-ok{background:rgba(63,125,92,.10);border:1px solid rgba(63,125,92,.32);border-radius:var(--r-3);padding:18px 20px}
+.panel-bad{background:rgba(212,93,93,.09);border:1px solid rgba(212,93,93,.32);border-radius:var(--r-3);padding:18px 20px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;background:var(--chip-bg);color:var(--text-2);border:1px solid var(--hairline)}
+.pill.ok{background:rgba(63,125,92,.16);color:var(--green);border-color:rgba(63,125,92,.34)}
+.pill.bad{background:rgba(212,93,93,.16);color:var(--coral);border-color:rgba(212,93,93,.34)}
+.pill.warn{background:rgba(242,201,76,.22);color:var(--warn);border-color:rgba(242,201,76,.46)}
+.pill.info{background:rgba(30,95,116,.14);color:var(--teal);border-color:rgba(30,95,116,.32)}
+.pill.accent{background:rgba(232,159,76,.18);color:var(--accent-ink);border-color:rgba(232,159,76,.36)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:15px}
+thead th{text-align:left;font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--hairline)}
+tbody td{padding:11px 12px;border-bottom:1px dashed var(--hairline);vertical-align:top;color:var(--text-2);line-height:1.45}
+tbody tr:last-child td{border-bottom:0}
+ul,ol{padding-left:22px;color:var(--text-2);line-height:1.55}
+li+li{margin-top:6px}
+code{font-family:var(--font-mono);font-size:.86em;background:rgba(255,255,255,.45);padding:1px 6px;border-radius:4px;border:1px solid var(--hairline);color:var(--text-1)}
+[data-theme="dark"] code{background:rgba(255,255,255,.06)}
+
+.deck{width:100%;max-width:1440px;margin:0 auto;padding:64px 24px 96px;display:flex;flex-direction:column;gap:40px}
+.slide{position:relative;width:100%;aspect-ratio:16/9;min-height:520px;border-radius:28px;padding:clamp(28px,4vw,60px);display:flex;flex-direction:column;justify-content:center;gap:18px;overflow:auto;scroll-margin-top:24px}
+.slide .eyebrow{margin-bottom:2px}
+.slide h1{font-size:clamp(34px,4.6vw,56px);line-height:1.06;letter-spacing:-.02em}
+.slide h2{font-size:clamp(26px,3.2vw,40px);line-height:1.12;letter-spacing:-.015em}
+.slide .lede{font-size:clamp(16px,1.5vw,20px);line-height:1.5;max-width:960px}
+.slide p{font-size:17px;line-height:1.55;max-width:960px}
+.slide li{font-size:16.5px}
+.slide .slide-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);font-weight:700}
+.slide-num{position:absolute;bottom:20px;right:26px;font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.05em}
+.slide table{font-size:14px}
+.slide tbody td{padding:9px 12px}
+
+body.js-deck{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body.js-deck .deck{flex:1;min-height:0;padding:0;display:block;position:relative;overflow:hidden}
+body.js-deck .slide{display:none;position:absolute;inset:0;margin:auto;max-width:1320px;max-height:88vh;width:calc(100% - 64px)}
+body.js-deck .slide.is-active{display:flex}
+
+.deck-nav{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:14px;padding:9px 18px;border-radius:999px;background:var(--glass-bg);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);backdrop-filter:blur(20px);font-family:var(--font-mono);font-size:12px;color:var(--text-2)}
+body.js-deck .deck-nav{display:flex}
+.deck-nav button{width:30px;height:30px;border-radius:50%;border:1px solid var(--hairline);background:var(--chip-bg);color:var(--text-1);cursor:pointer;font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.deck-nav button:hover{background:var(--accent-soft);border-color:var(--accent)}
+.deck-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.deck-counter{min-width:52px;text-align:center;font-weight:700;color:var(--text-1)}
+.kbd-hint{color:var(--text-3);display:none}
+@media(min-width:760px){.kbd-hint{display:inline}}
+
+.title-slide{align-items:center;text-align:center;justify-content:center;gap:14px}
+.title-slide h1{max-width:980px}
+.title-slide .sub{font-size:clamp(15px,1.6vw,19px);color:var(--text-2);max-width:820px}
+.title-meta{margin-top:18px;font-family:var(--font-mono);font-size:12px;color:var(--text-3);letter-spacing:.03em}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;width:100%}
+.two-col .panel h4,.two-col .panel-mute h4,.two-col .panel-warm h4,.two-col .panel-ok h4,.two-col .panel-bad h4{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:8px}
+.two-col p{font-size:15.5px;line-height:1.5}
+.two-col li{font-size:15px}
+
+.flow-row{display:flex;align-items:stretch;gap:8px;width:100%;flex-wrap:wrap}
+.flow-step{flex:1;min-width:150px;background:var(--chip-bg);border:1px solid var(--hairline);border-radius:14px;padding:14px 14px 16px;display:flex;flex-direction:column;gap:4px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.flow-step .n{font-family:var(--font-mono);font-size:10px;color:var(--accent-ink);font-weight:700}
+.flow-step h4{font-size:14px;font-weight:700;color:var(--text-1);line-height:1.3}
+.flow-step p{font-size:12.5px;color:var(--text-3);line-height:1.4;max-width:none}
+.flow-step.accent{background:var(--accent-soft);border-color:var(--accent)}
+.flow-step.ok{background:rgba(63,125,92,.10);border-color:rgba(63,125,92,.34)}
+.flow-arrow{align-self:center;font-size:20px;color:var(--text-3);flex:0 0 auto}
+
+.card-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.agent-card{background:var(--chip-bg);border:1px solid var(--hairline);border-radius:16px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:8px}
+.agent-card .tag{font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em}
+.agent-card h4{font-size:16px;line-height:1.28}
+.agent-card p{font-size:13.5px;color:var(--text-2);line-height:1.45;max-width:none}
+
+.ask-list{display:flex;flex-direction:column;gap:10px;width:100%}
+.ask-item{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:12px;background:var(--chip-bg);border:1px solid var(--hairline)}
+.ask-item .num{flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.ask-item p{font-size:14.5px;margin:0;max-width:none}
+
+.mech-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.mech-row.five{grid-template-columns:repeat(5,1fr)}
+.mech-card{background:var(--chip-bg);border:1px solid var(--hairline);border-radius:16px;padding:18px}
+.mech-card .tag{font-family:var(--font-mono);font-size:10px;color:var(--accent-ink);text-transform:uppercase;letter-spacing:.06em}
+.mech-card h4{font-size:15.5px;margin-top:4px;line-height:1.3}
+.mech-card p{font-size:13.5px;line-height:1.45;margin-top:6px;max-width:none}
+
+.field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.field-item{background:var(--chip-bg);border:1px solid var(--hairline);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.field-item .k{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;color:var(--text-3);letter-spacing:.05em}
+.field-item .v{font-size:13.5px;color:var(--text-1);font-weight:600;line-height:1.35}
+
+.mock-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;width:100%}
+.mock-card .mock-tag{font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em}
+.mock-card .mock-field{font-family:var(--font-display);font-size:20px;color:var(--text-1);margin-top:4px}
+.mock-card .mock-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.mock-card .mock-grid .lab{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;color:var(--text-3)}
+.mock-card .mock-grid .val{font-size:14px;color:var(--text-1);font-weight:600;margin-top:2px}
+.mock-card .mock-evidence{margin-top:12px;padding-top:12px;border-top:1px dashed var(--hairline)}
+.mock-card .mock-evidence p{font-size:14px;max-width:none}
+.quote{font-family:var(--font-display);font-style:italic;color:var(--text-1);background:var(--accent-soft);padding:2px 6px;border-radius:4px}
+
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;width:100%}
+.stat{background:var(--chip-bg);border:1px solid var(--hairline);border-radius:14px;padding:14px 16px}
+.stat .n{font-family:var(--font-display);font-size:34px;line-height:1;color:var(--text-1)}
+.stat .l{font-size:12.5px;color:var(--text-3);margin-top:6px;line-height:1.35}
+
+.pullquote{font-family:var(--font-display);font-weight:500;font-size:clamp(19px,2.1vw,26px);line-height:1.4;color:var(--text-1);max-width:1000px}
+
+.loop{display:flex;align-items:stretch;gap:8px;width:100%;flex-wrap:wrap}
+.loop .flow-step{min-width:130px}
+
+.status-split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;width:100%}
+.status-split .head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.status-split .head h3{font-size:16px}
+.status-split ul{padding-left:20px;margin:0}
+.status-split li{font-size:14px;line-height:1.45;margin-bottom:6px}
+
+@media(max-width:900px){
+  .two-col,.card-row,.status-split,.mech-row,.mech-row.five,.field-grid,.stat-row,.mock-card .mock-grid{grid-template-columns:1fr}
+  .flow-row,.loop{flex-direction:column}
+  .flow-arrow{transform:rotate(90deg)}
+}
+@media print{
+  .theme-toggle,.deck-nav{display:none}
+  body{height:auto;overflow:visible;background:#fff}
+  body.js-deck{height:auto;overflow:visible;display:block}
+  body.js-deck .deck{overflow:visible}
+  .deck{padding:0;gap:0}
+  .slide{display:flex !important;position:static !important;max-width:none;width:100%;aspect-ratio:auto;min-height:96vh;page-break-after:always;box-shadow:none;border-radius:0}
+  .slide:last-child{page-break-after:auto}
+}
+</style>
+</head>
+<body data-theme="light">
+<button class="theme-toggle" id="themeBtn" aria-label="Toggle light or dark theme" title="Toggle theme">&#9790;</button>
+
+<main class="deck" id="deck">
+
+<!-- 1: TITLE -->
+<section class="slide title-slide glass" id="s1">
+  <div class="eyebrow">AI Playbooks Hub &middot; component recommendations</div>
+  <h1>Recommending reusable components: <em>skills, MCP servers, agents</em></h1>
+  <p class="sub">What the work is, how it is done day to day, and how the same method extends to data products and other component types.</p>
+  <div class="title-meta">Yurii Oksamytnyi &middot; 3 September 2026 &middot; for the Playbooks team and new joiners</div>
+  <span class="slide-num">1 / 19</span>
+</section>
+
+<!-- 2: THE ASK IN ONE SENTENCE -->
+<section class="slide glass" id="s2">
+  <div class="slide-kicker">The work in one sentence</div>
+  <h2>Given a use case, tell the team what <em>already exists</em> that they can reuse &mdash; with evidence, or say clearly that nothing suitable exists.</h2>
+  <div class="two-col">
+    <div class="panel">
+      <h4>Why it matters</h4>
+      <p>The hub knows best-practice <strong>cards</strong> (use cases). The bank's reusable building blocks &mdash; skills, MCP servers, agents, knowledge sources &mdash; live in <strong>Agent Hub</strong>. Today nothing connects the two, so teams rebuild what exists.</p>
+    </div>
+    <div class="panel">
+      <h4>What "recommendation" means here</h4>
+      <p>Not a chat answer. A <strong>ranked, evidenced list</strong> of catalogue components per type, each with a fit verdict and two verbatim quotes &mdash; one from the component's record, one from the use case &mdash; that a reviewer can check in seconds.</p>
+    </div>
+  </div>
+  <p class="lede">Three deliverables: a <strong>validated registry</strong> of components, a <strong>recommendation service</strong> that cannot invent components, and a <strong>way to measure</strong> whether the recommendations are good.</p>
+  <span class="slide-num">2 / 19</span>
+</section>
+
+<!-- 3: WHERE IT SITS -->
+<section class="slide glass" id="s3">
+  <div class="slide-kicker">Where it sits</div>
+  <h2>Two sources in, one registry, one service, two consumers</h2>
+  <div class="flow-row">
+    <div class="flow-step"><div class="n">SOURCE A</div><h4>Agent Hub metadata export</h4><p>Four sheets: agent usage (which agent uses which skill / MCP / knowledge source), skill list, MCP list, knowledge-source list.</p></div>
+    <div class="flow-step"><div class="n">SOURCE B</div><h4>Skills marketplace repository</h4><p>One folder per skill with a <code>SKILL.md</code> file: name, description, optional metadata, optional dependencies.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step accent"><div class="n">REGISTRY</div><h4>Validated component catalogue</h4><p>Versioned records with a derived identity, quality flags, links between components, and a searchable text.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step accent"><div class="n">SERVICE</div><h4>Recommendation pipeline</h4><p>Use case in; evidenced recommendations per type out; "nothing suitable" is a valid answer.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step ok"><div class="n">CONSUMERS</div><h4>Hub UI and MCP tools</h4><p>A page in the hub and a panel on each card; the same operations exposed as tools for coding assistants.</p></div>
+  </div>
+  <p>The registry and the service are <strong>additions</strong> to the hub. Existing search, novelty verdicts, completeness scoring and card ingestion are untouched; the new parts sit behind a feature flag.</p>
+  <span class="slide-num">3 / 19</span>
+</section>
+
+<!-- 4: SIX PHASES -->
+<section class="slide glass" id="s4">
+  <div class="slide-kicker">How the work is organised</div>
+  <h2>Six phases, each with a concrete artefact</h2>
+  <div class="flow-row">
+    <div class="flow-step"><div class="n">1</div><h4>Understand the sources</h4><p>What each source holds, field by field. Artefact: a structural description with counts.</p></div>
+    <div class="flow-step"><div class="n">2</div><h4>Validate the data</h4><p>Find what is duplicated, missing, inconsistent or test noise. Artefact: a defect register with a rule per defect.</p></div>
+    <div class="flow-step"><div class="n">3</div><h4>Build the registry</h4><p>Derive identity, apply flags, record links, version it. Artefact: registry tables plus an ingest report.</p></div>
+    <div class="flow-step"><div class="n">4</div><h4>Design the pipeline</h4><p>Retrieval, assessment, verification, thresholds. Artefact: an architecture and a working proof of concept.</p></div>
+    <div class="flow-step"><div class="n">5</div><h4>Measure</h4><p>Golden set and metrics. Artefact: an evaluation report that states its own confidence.</p></div>
+    <div class="flow-step"><div class="n">6</div><h4>Deliver</h4><p>Hub pages, card panel, MCP tools. Artefact: a pull request and a manual test script.</p></div>
+  </div>
+  <div class="two-col">
+    <div class="panel-mute"><h4>Where we are</h4><p>Phases 1&ndash;2 complete with numbers; phase 3&ndash;4 design complete and the proof-of-concept build under way; 5&ndash;6 scoped.</p></div>
+    <div class="panel-mute"><h4>Why the order is fixed</h4><p>A recommender built on unvalidated identifiers recommends the wrong thing confidently. Validation comes first, and it is the phase that produces the most reusable knowledge.</p></div>
+  </div>
+  <span class="slide-num">4 / 19</span>
+</section>
+
+<!-- 5: PHASE 1 -->
+<section class="slide glass" id="s5">
+  <div class="slide-kicker">Phase 1 &middot; understand the sources</div>
+  <h2>What a "component" looks like in each source</h2>
+  <div class="stat-row">
+    <div class="stat"><div class="n">4</div><div class="l">sheets in the Agent Hub export; agent usage rows link agents to the components they employ</div></div>
+    <div class="stat"><div class="n">~245</div><div class="l">skills in the export; ~83 MCP servers; ~188 knowledge sources</div></div>
+    <div class="stat"><div class="n">291</div><div class="l">skill folders in the marketplace repository; 282 with a parsable header block, 9 without</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">fields consistently present across skills: name and description. No other field appears in more than half</div></div>
+  </div>
+  <div class="two-col">
+    <div class="panel">
+      <h4>Export (portal view)</h4>
+      <ul>
+        <li>Identifier, name, description per component; tenant per agent.</li>
+        <li>Agent rows carry comma-separated lists of skill, MCP and knowledge-source identifiers &mdash; the only machine-readable <strong>usage</strong> signal we have.</li>
+        <li>The portal database is the authoritative registry; the repository is the content source that syncs into it.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h4>Repository (author view)</h4>
+      <ul>
+        <li>A header block at the top of <code>SKILL.md</code>; the guide asks authors to put the strongest trigger guidance in the description.</li>
+        <li>Metadata lives in two places (top level and a nested block) depending on the author.</li>
+        <li>Dependencies on other skills or MCP servers are declared by 11% of skills, in five different field names, none as a resolvable reference.</li>
+      </ul>
+    </div>
+  </div>
+  <span class="slide-num">5 / 19</span>
+</section>
+
+<!-- 6: PHASE 2 FINDINGS -->
+<section class="slide glass" id="s6">
+  <div class="slide-kicker">Phase 2 &middot; validate the data</div>
+  <h2>What the data says, and the rule each finding produced</h2>
+  <table>
+    <thead><tr><th style="width:34%">Finding (structure only)</th><th style="width:30%">Why it matters for recommendations</th><th>Rule adopted</th></tr></thead>
+    <tbody>
+      <tr><td>MCP identifiers are not unique: the same id appears up to four times, occasionally with a name that says one system and a description that says another.</td><td>A recommendation of "that id" can point at four different things.</td><td>Identity is <strong>derived</strong> by us, never trusted from the source; duplicates are kept distinct and flagged.</td></tr>
+      <tr><td>Knowledge-source list contains obvious test rows (single letters, "test", "upload test").</td><td>Test rows would be recommended like real ones.</td><td><code>test_data</code> flag; excluded by default, visible in the registry browser.</td></tr>
+      <tr><td>Nine skills have no header block; their raw file content leaks into the export's description field.</td><td>The recommender would quote raw markup as evidence.</td><td><code>missing_frontmatter</code> and <code>raw_yaml_description</code> flags; ineligible by default.</td></tr>
+      <tr><td>Version absent in 59% of skills; the same field spelt two ways; twelve folder names differ from the declared name; one name declared in two folders.</td><td>Nothing stable to key on; the same skill can be counted twice or missed.</td><td>Canonical skill identity = folder; declared name kept as an alias; every inconsistency flagged, none dropped.</td></tr>
+      <tr><td>No schema validation exists at commit, pull request or pipeline level in the skills flow.</td><td>Every defect above will recur.</td><td>Our parsers count every unrecognised field into a visible report rather than discarding it silently &mdash; and that report is the input for a future validator at the existing gate.</td></tr>
+    </tbody>
+  </table>
+  <span class="slide-num">6 / 19</span>
+</section>
+
+<!-- 7: FLAGS -->
+<section class="slide glass" id="s7">
+  <div class="slide-kicker">Phase 2 &middot; output</div>
+  <h2>Quality flags: visible, never silent</h2>
+  <div class="two-col">
+    <div class="panel-bad">
+      <h4>Blocking &mdash; component is not recommended until fixed</h4>
+      <ul>
+        <li><code>duplicate_id</code> &mdash; the source identifier is shared with another record</li>
+        <li><code>name_description_mismatch</code> &mdash; name and description name different systems</li>
+        <li><code>test_data</code> &mdash; name or description matches test patterns</li>
+        <li><code>missing_frontmatter</code> &mdash; skill file has no header block</li>
+        <li><code>raw_yaml_description</code> &mdash; description is unparsed file content</li>
+        <li><code>empty_description</code></li>
+      </ul>
+    </div>
+    <div class="panel-warm">
+      <h4>Informational &mdash; recorded, still eligible</h4>
+      <ul>
+        <li><code>no_version</code></li>
+        <li><code>folder_name_mismatch</code> &mdash; folder differs from declared name</li>
+        <li><code>duplicate_name_across_folders</code></li>
+        <li><code>unresolved_dependency</code> &mdash; a declared dependency matches nothing</li>
+        <li><code>spelling_variant</code> &mdash; a known variant was normalised</li>
+        <li><code>nested_skill</code> &mdash; skill file found below the expected depth</li>
+      </ul>
+    </div>
+  </div>
+  <p class="pullquote">A flag is a fact about the source that anyone can see and act on. It is also the first draft of the validation rule the source should enforce itself.</p>
+  <span class="slide-num">7 / 19</span>
+</section>
+
+<!-- 8: PHASE 3 REGISTRY -->
+<section class="slide glass" id="s8">
+  <div class="slide-kicker">Phase 3 &middot; build the registry</div>
+  <h2>One record per component, one version per ingestion</h2>
+  <div class="field-grid">
+    <div class="field-item"><div class="k">component_id</div><div class="v">Canonical: type + derived slug, e.g. <code>mcp:&lt;slug&gt;</code>, <code>skill:&lt;folder&gt;</code></div></div>
+    <div class="field-item"><div class="k">component_type</div><div class="v">skill &middot; mcp &middot; agent &middot; knowledge_source &middot; (next: data_product)</div></div>
+    <div class="field-item"><div class="k">name / description</div><div class="v">As in the source, untouched</div></div>
+    <div class="field-item"><div class="k">source / source_ref</div><div class="v">Which source, which sheet row or file &mdash; structure only</div></div>
+    <div class="field-item"><div class="k">external_ids</div><div class="v">Portal id, folder, declared name, only-in-repo / only-in-export</div></div>
+    <div class="field-item"><div class="k">triggers / tools / tags</div><div class="v">Extracted from the description and metadata; drive retrieval</div></div>
+    <div class="field-item"><div class="k">quality_flags / eligible</div><div class="v">From phase 2; eligibility derived, not hand-set</div></div>
+    <div class="field-item"><div class="k">links</div><div class="v">agent &rarr; uses skill / MCP / knowledge; skill &rarr; depends on skill; skill &rarr; allows MCP</div></div>
+    <div class="field-item"><div class="k">catalogue_version</div><div class="v">Hash of the inputs; every recommendation cites it</div></div>
+  </div>
+  <div class="two-col">
+    <div class="panel-mute"><h4>What the ingest report shows</h4><p>Counts per type (eligible / ineligible), the flag histogram, every unrecognised field with how often it appeared, unresolved links, and how skills were matched between the two sources. Counts only &mdash; never names or descriptions.</p></div>
+    <div class="panel-mute"><h4>What it never contains</h4><p>Owner or contributor identifiers, file paths, raw text of any record. The report is safe to share as-is.</p></div>
+  </div>
+  <span class="slide-num">8 / 19</span>
+</section>
+
+<!-- 9: THE PRINCIPLE -->
+<section class="slide glass" id="s9">
+  <div class="slide-kicker">Phase 4 &middot; the design principle</div>
+  <h2>The model <em>selects</em> from a list we give it. It never invents an identifier.</h2>
+  <div class="mech-row five">
+    <div class="mech-card"><div class="tag">Rule 1</div><h4>Enumerated candidates</h4><p>Deterministic code retrieves at most eight candidates per type. The model refers to them by position, not by name.</p></div>
+    <div class="mech-card"><div class="tag">Rule 2</div><h4>One candidate per call</h4><p>Each candidate is judged alone, so the model cannot trade candidates off or "improve" on the list.</p></div>
+    <div class="mech-card"><div class="tag">Rule 3</div><h4>Verified quotes</h4><p>Every verdict carries two verbatim quotes. Code checks they really occur in the source text; if not, the verdict is discarded and counted.</p></div>
+    <div class="mech-card"><div class="tag">Rule 4</div><h4>Empty is a success</h4><p>If nothing passes the threshold, the answer is "nothing suitable" with a reason &mdash; not the least-bad option.</p></div>
+    <div class="mech-card"><div class="tag">Rule 5</div><h4>Bounded synthesis</h4><p>The final ordering step may reorder and explain; it is validated to return exactly the ids it was given.</p></div>
+  </div>
+  <p>Everything else &mdash; prompts, weights, thresholds &mdash; is a tunable. These five are not. They are what makes the output checkable by a business analyst without reading code.</p>
+  <span class="slide-num">9 / 19</span>
+</section>
+
+<!-- 10: PIPELINE -->
+<section class="slide glass" id="s10">
+  <div class="slide-kicker">Phase 4 &middot; the pipeline</div>
+  <h2>Six stages from use case to evidenced list</h2>
+  <div class="flow-row">
+    <div class="flow-step"><div class="n">S1</div><h4>Need profile</h4><p>The use case is summarised into a controlled vocabulary: domains, capabilities, integrations, constraints. One model call.</p></div>
+    <div class="flow-step"><div class="n">S2</div><h4>Retrieve</h4><p>Three deterministic signals &mdash; keyword match, semantic similarity, and co-occurrence via agents that use the component &mdash; fused into a top list per type.</p></div>
+    <div class="flow-step"><div class="n">S3</div><h4>Assess</h4><p>One model call per candidate: fit strong / partial / none, two quotes, unmet preconditions, unknowns.</p></div>
+    <div class="flow-step"><div class="n">S4</div><h4>Verify and score</h4><p>Quotes checked by exact match; score from fit and retrieval; threshold applied; near-misses kept with reasons.</p></div>
+    <div class="flow-step"><div class="n">S5</div><h4>Synthesise</h4><p>Ordering and one-line rationale; validated to add or drop nothing.</p></div>
+    <div class="flow-step ok"><div class="n">S6</div><h4>Present</h4><p>Recommendations per type, near-misses, or an explicit empty result &mdash; each stamped with catalogue, prompt and model version.</p></div>
+  </div>
+  <div class="two-col">
+    <div class="panel-mute"><h4>Cost and speed bounds</h4><p>At most eight assessments per type, four in parallel, thirty seconds each, cached on catalogue + prompt + model version. A typical run is under a minute and reproducible.</p></div>
+    <div class="panel-mute"><h4>What is never stored or logged</h4><p>The raw use-case text. Only its hash and length, the derived profile, and the short verified quotes are kept; logs carry stage names and counts.</p></div>
+  </div>
+  <span class="slide-num">10 / 19</span>
+</section>
+
+<!-- 11: WHAT A RESULT LOOKS LIKE -->
+<section class="slide glass" id="s11">
+  <div class="slide-kicker">Phase 4 &middot; what a reviewer sees</div>
+  <h2>One recommendation, fully checkable</h2>
+  <div class="mock-card">
+    <div class="mock-tag">Illustrative &middot; synthetic example, not a catalogue record</div>
+    <div class="mock-field">mcp:ticketing-bridge &nbsp;<span class="pill ok">strong fit</span> &nbsp;<span class="pill info">score 0.82</span></div>
+    <div class="mock-grid">
+      <div><div class="lab">Rationale</div><div class="val">Creates and updates tickets from natural-language requests; matches the need's ticket-automation capability.</div></div>
+      <div><div class="lab">Unmet preconditions</div><div class="val">Requires the target project key to be configured.</div></div>
+      <div><div class="lab">Provenance</div><div class="val">catalogue 3f9a&hellip; &middot; prompt v1 &middot; model &lt;name&gt;</div></div>
+    </div>
+    <div class="mock-evidence">
+      <p><strong>From the component:</strong> <span class="quote">"creates, updates and transitions tickets on request"</span> &nbsp;&nbsp; <strong>From the use case:</strong> <span class="quote">"raise a change ticket automatically when the review completes"</span></p>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="panel-mute"><h4>Near misses are shown too</h4><p>Components that were retrieved but judged partial or unfit appear below with the reason &mdash; so a reviewer can disagree with the system on evidence, not on faith.</p></div>
+    <div class="panel-mute"><h4>The empty state is a real screen</h4><p>"No catalogue component fits this need" plus the reason (nothing retrieved / nothing fit / quotes did not verify) and a link to browse the registry.</p></div>
+  </div>
+  <span class="slide-num">11 / 19</span>
+</section>
+
+<!-- 12: MEASURE -->
+<section class="slide glass" id="s12">
+  <div class="slide-kicker">Phase 5 &middot; measure</div>
+  <h2>How we know it works &mdash; and how we say what we do not know</h2>
+  <div class="two-col">
+    <div class="panel">
+      <h4>Golden set (four kinds of case)</h4>
+      <ul>
+        <li><strong>Positive</strong>: a real card with expected components, grounded where possible in agent-usage links (mechanical truth).</li>
+        <li><strong>Empty control</strong>: synthetic needs with no plausible match; the right answer is "nothing".</li>
+        <li><strong>Near-duplicate pair</strong>: two related cards; recommendations should overlap.</li>
+        <li><strong>Stability</strong>: the same input three times; the top three must not change.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h4>Metrics reported</h4>
+      <ul>
+        <li>Precision and recall at k per component type</li>
+        <li>False-positive rate on empty controls</li>
+        <li>Overlap on near-duplicate pairs; stability rate</li>
+        <li>Share of verdicts discarded because a quote did not verify; timeout rate</li>
+      </ul>
+    </div>
+  </div>
+  <div class="panel-warm">
+    <h4>The honesty rule</h4>
+    <p>Every golden case records who labelled it and with what confidence. Cases labelled by a drafting process rather than a person are marked as such, and the report says in its header that those numbers are not accuracy figures until a human confirms the labels. Confirming labels is a task a business analyst can own end to end.</p>
+  </div>
+  <span class="slide-num">12 / 19</span>
+</section>
+
+<!-- 13: DELIVER -->
+<section class="slide glass" id="s13">
+  <div class="slide-kicker">Phase 6 &middot; deliver</div>
+  <h2>One service, two consumers</h2>
+  <div class="two-col">
+    <div class="panel">
+      <h4>In the hub (people)</h4>
+      <ul>
+        <li><strong>Recommend</strong> page: paste a use case or pick a card; results per type with evidence and near-misses.</li>
+        <li><strong>Registry</strong> browser: every component with its flags, filters by type and flag, eligible-only by default.</li>
+        <li><strong>Component detail</strong>: fields, flags explained, which agents use it, what it depends on.</li>
+        <li><strong>Catalogue status</strong>: version, counts, flag histogram, unrecognised fields.</li>
+        <li><strong>Card panel</strong>: "Suggested components" on each best-practice card.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h4>As MCP tools (coding assistants)</h4>
+      <ul>
+        <li><code>check_duplicate</code> &mdash; does a similar card already exist?</li>
+        <li><code>suggest_components</code> &mdash; what could this use case reuse?</li>
+        <li><code>get_card</code> &mdash; read one card by id.</li>
+      </ul>
+      <p>The tool descriptions are written as routing guidance ("use this when&hellip;"), because a tool that is configured but never invoked adds nothing. Distribution, transport and authentication are platform concerns handled centrally, not in this work.</p>
+    </div>
+  </div>
+  <span class="slide-num">13 / 19</span>
+</section>
+
+<!-- 14: A WORKING DAY -->
+<section class="slide glass" id="s14">
+  <div class="slide-kicker">How the work looks day to day</div>
+  <h2>A loop that always ends in a count</h2>
+  <div class="loop">
+    <div class="flow-step"><div class="n">1</div><h4>Read the source's structure</h4><p>Sheet headers, file layout, field names, how existing code reads them. Never the content for its own sake.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step"><div class="n">2</div><h4>Write a structure-only note</h4><p>Field names, types, counts, examples with synthetic values. This is the knowledge that survives hand-over.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step"><div class="n">3</div><h4>Propose a rule</h4><p>"Identity is the folder name." "A row is test data when&hellip;" One sentence, falsifiable.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step"><div class="n">4</div><h4>Run it over the whole corpus</h4><p>Not a sample. A script or an agentic coding assistant applies the rule to every record and reports what it touched.</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step ok"><div class="n">5</div><h4>Report the count</h4><p>"12 of 291." "0 mismatches after the fix." Then the rule goes into the registry code, with a test.</p></div>
+  </div>
+  <div class="two-col">
+    <div class="panel-mute"><h4>Tools</h4><p>The bank's cloud workstation; the hub repository; the skills repository; the metadata export; an agentic coding assistant for corpus-wide checks and for building the proof of concept from a written architecture.</p></div>
+    <div class="panel-mute"><h4>Working rules</h4><p>Data never leaves the environment; findings are reported as structure and counts; every claim in a message has a number behind it; a fix is verified over the whole corpus before it is called a fix.</p></div>
+  </div>
+  <span class="slide-num">14 / 19</span>
+</section>
+
+<!-- 15: EXAMPLE OF THE LOOP -->
+<section class="slide glass" id="s15">
+  <div class="slide-kicker">The loop, on a real case</div>
+  <h2>A field that was empty on every card &mdash; and why</h2>
+  <div class="two-col">
+    <div class="panel">
+      <h4>What was observed</h4>
+      <p>The hub's card ingestion maps hand-written header keys to canonical names through a fixed alias table. A key that does not match falls through to a generic fallback and is stored under a name nothing reads. No error, no log line.</p>
+      <p>One instance was confirmed: the related-use-cases field was empty on <strong>all</strong> cards because the table expected a plural spelling and every card used the singular.</p>
+    </div>
+    <div class="panel-ok">
+      <h4>What was done</h4>
+      <ul>
+        <li>Alias added; re-run over the full corpus: 12 of 41 local cards now carry the field, 0 mismatches, 6 symmetric pairs.</li>
+        <li>Generalisable fix proposed: log a warning whenever the fallback produces a key no reader consumes.</li>
+        <li>The same class of defect is the leading hypothesis for the reported "capabilities present, completeness score zero" case; that field is being traced next.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="pullquote">The point of the example: the finding is a mechanism, not a symptom &mdash; and a mechanism produces a rule the new registry already applies to itself.</p>
+  <span class="slide-num">15 / 19</span>
+</section>
+
+<!-- 16: DATA PRODUCTS -->
+<section class="slide glass" id="s16">
+  <div class="slide-kicker">For new joiners &middot; extending the method</div>
+  <h2>Data products are a <em>fourth component type</em>, not a new system</h2>
+  <p class="lede">The registry and the pipeline are type-agnostic. Adding a component type means answering five questions about its source; nothing in the recommendation stages changes.</p>
+  <div class="ask-list">
+    <div class="ask-item"><span class="num">1</span><p><strong>Source of truth.</strong> Where is the authoritative list of data products, and what is the export or API that yields it? Structure it field by field before anything else.</p></div>
+    <div class="ask-item"><span class="num">2</span><p><strong>Identity rule.</strong> Which field, or derived value, is the stable identifier? Assume the source's own ids are not unique until counted.</p></div>
+    <div class="ask-item"><span class="num">3</span><p><strong>Quality flags.</strong> Which rows are test noise, incomplete, duplicated or inconsistent? Write each as a one-sentence rule and count what it matches.</p></div>
+    <div class="ask-item"><span class="num">4</span><p><strong>Links.</strong> What connects a data product to agents or use cases &mdash; consumption records, lineage, ownership? Links are the strongest retrieval signal after text.</p></div>
+    <div class="ask-item"><span class="num">5</span><p><strong>Vocabulary.</strong> Which controlled terms (domains, data kinds) let the need profile name what a data product provides? Add them to the shared vocabulary rather than inventing a parallel one.</p></div>
+  </div>
+  <span class="slide-num">16 / 19</span>
+</section>
+
+<!-- 17: ONBOARDING PATH -->
+<section class="slide glass" id="s17">
+  <div class="slide-kicker">For new joiners &middot; a suggested first three weeks</div>
+  <h2>Reproduce, own one rule, add one type</h2>
+  <div class="status-split">
+    <div class="panel">
+      <div class="head"><span class="pill info">Week 1</span><h3>Reproduce the counts</h3></div>
+      <ul>
+        <li>Read the structural notes and the defect register.</li>
+        <li>Run the registry ingest on the current export and repository; compare the ingest report to the recorded numbers.</li>
+        <li>Browse the registry pages; open ten flagged records and confirm the flag by eye.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="head"><span class="pill info">Week 2</span><h3>Own one rule end to end</h3></div>
+      <ul>
+        <li>Pick one quality flag or one source field with a known gap.</li>
+        <li>Tighten or add the rule, with a test using synthetic fixtures.</li>
+        <li>Re-run over the corpus; report the before/after count.</li>
+        <li>Confirm five golden-set labels and re-run the evaluation.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="head"><span class="pill accent">Week 3</span><h3>Add a component type</h3></div>
+      <ul>
+        <li>Answer the five questions from the previous slide for the new source.</li>
+        <li>Write the reader and identity rule; register the type; ingest.</li>
+        <li>Add golden cases for the type; check the empty-control rate did not move.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="panel-mute"><h4>Access needed</h4><p>Cloud workstation; the hub repository and the skills repository; the current metadata export; the hub's model gateway (already configured by the hub); and, for data products, whatever holds their authoritative list.</p></div>
+  <span class="slide-num">17 / 19</span>
+</section>
+
+<!-- 18: GLOSSARY -->
+<section class="slide glass" id="s18">
+  <div class="slide-kicker">Glossary</div>
+  <h2>Terms used in this deck</h2>
+  <div class="two-col">
+    <table>
+      <tbody>
+        <tr><td><strong>Card</strong></td><td>A best-practice card in the AI Playbooks Hub describing one AI use case.</td></tr>
+        <tr><td><strong>Component</strong></td><td>A reusable building block: skill, MCP server, agent, knowledge source &mdash; and next, data product.</td></tr>
+        <tr><td><strong>Skill</strong></td><td>A packaged instruction set an agent can invoke; lives as a folder with a <code>SKILL.md</code> file.</td></tr>
+        <tr><td><strong>MCP server</strong></td><td>A service exposing tools to AI assistants through the Model Context Protocol.</td></tr>
+        <tr><td><strong>Agent Hub</strong></td><td>The bank's platform where components are registered; the metadata export is its snapshot.</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <tbody>
+        <tr><td><strong>Registry</strong></td><td>Our validated, versioned catalogue of components with flags and links.</td></tr>
+        <tr><td><strong>Need profile</strong></td><td>The controlled-vocabulary summary of what a use case requires.</td></tr>
+        <tr><td><strong>Eligible</strong></td><td>A component with no blocking quality flag.</td></tr>
+        <tr><td><strong>Near miss</strong></td><td>A retrieved component the assessment rejected or that fell below the threshold.</td></tr>
+        <tr><td><strong>Golden set</strong></td><td>Labelled cases used to measure recommendation quality; each carries labeller and confidence.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <span class="slide-num">18 / 19</span>
+</section>
+
+<!-- 19: CLOSE -->
+<section class="slide title-slide glass" id="s19">
+  <div class="eyebrow">Questions</div>
+  <h1>Happy to walk any slide in ten minutes</h1>
+  <p class="sub">The structural notes, the defect register, the architecture and the evaluation format are written down and hand-over ready. Anything a new joiner needs that is not here is a gap in the notes, and I would like to know about it.</p>
+  <div class="title-meta">Yurii Oksamytnyi &middot; 3 September 2026</div>
+  <span class="slide-num">19 / 19</span>
+</section>
+
+</main>
+
+<nav class="deck-nav" aria-label="Slide navigation">
+  <button id="prev" aria-label="Previous slide">&larr;</button>
+  <span class="deck-counter"><span id="cur">1</span> / <span id="tot">19</span></span>
+  <button id="next" aria-label="Next slide">&rarr;</button>
+  <span class="kbd-hint">&larr; / &rarr; / space / Home / End</span>
+</nav>
+
+<script>
+(function () {
+  var key = "hsbc_docs_theme";
+  var root = document.documentElement;
+  var body = document.body;
+  var btn = document.getElementById("themeBtn");
+  var stored = null;
+  try { stored = localStorage.getItem(key); } catch (e) {}
+  var preferred = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  function apply(theme) {
+    root.setAttribute("data-theme", theme);
+    body.setAttribute("data-theme", theme);
+    btn.innerHTML = theme === "dark" ? "&#9728;" : "&#9790;";
+    btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+  }
+  apply(stored === "dark" || stored === "light" ? stored : preferred);
+  btn.addEventListener("click", function () {
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    try { localStorage.setItem(key, next); } catch (e) {}
+    apply(next);
+  });
+})();
+
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  var cur = document.getElementById("cur");
+  var tot = document.getElementById("tot");
+  var i = 0;
+  tot.textContent = slides.length;
+  document.body.classList.add("js-deck");
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) { s.classList.toggle("is-active", k === i); });
+    cur.textContent = i + 1;
+    history.replaceState(null, "", "#s" + (i + 1));
+  }
+  document.getElementById("prev").addEventListener("click", function () { show(i - 1); });
+  document.getElementById("next").addEventListener("click", function () { show(i + 1); });
+  document.addEventListener("keydown", function (e) {
+    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); show(i + 1); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); show(i - 1); }
+    if (e.key === "Home") { e.preventDefault(); show(0); }
+    if (e.key === "End") { e.preventDefault(); show(slides.length - 1); }
+  });
+  var startHash = parseInt(location.hash.replace("#s", ""), 10);
+  show(!isNaN(startHash) && startHash > 0 ? startHash - 1 : 0);
+})();
+</script>
+</body>
+</html>

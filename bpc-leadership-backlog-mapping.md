@@ -180,5 +180,14 @@ fine to include. Card content, source code and real use-case text are not.
   Нажми последний Copy to Clipboard (base64 «user:password» — Nexus уже посчитал) и в bash-терминал одной строкой, вставив значение вместо PASTE:
 
 
-printf '%s' '<длинный pass code>' | docker login nexus3.systems.uk.hsbc:18096 -u <короткий name code> --password-stdin
+
+  Docker registry auth is done on my side (docker login succeeded). Bring Postgres up with
+  docker compose, run the ingest against the database, then the eval, and commit
+  INGEST-REPORT.md and EVAL-REPORT.md.
+  Then undici: first say whether jsdom/undici@7.28.0 is in main's frontend/package-lock.json
+  or was introduced by our lanes. Read the 403 body for the policy reason. If it is a
+  vulnerability fixed in a later undici, pin that version via package.json overrides — that is
+  the remediation the policy asks for, one commit, noted in PROGRESS.md. If it is a different
+  policy (age, licence), stop and report. Then frontend type-check, lint, build, tests.
+  Pause before task 7.
 

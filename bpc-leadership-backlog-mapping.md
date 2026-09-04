@@ -180,4 +180,5 @@ fine to include. Card content, source code and real use-case text are not.
   Нажми последний Copy to Clipboard (base64 «user:password» — Nexus уже посчитал) и в bash-терминал одной строкой, вставив значение вместо PASTE:
 
 
-printf '%s' 'PASSCODE' | docker login nexus3.systems.uk.hsbc:18096 -u NAMECODE --password-stdin
+printf '%s' '<длинный pass code>' | docker login nexus3.systems.uk.hsbc:18096 -u <короткий name code> --password-stdin
+

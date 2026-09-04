@@ -176,37 +176,15 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
+  curl --fail -k -o "$HOME/.truststore.pem" "https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/gbm-tools/certs/truststore-prod-2.0.12.pem"
 
-curl --fail -k -o "$HOME/.truststore.pem" \
-  "https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/gbm-tools/certs/truststore-prod-2.0.12.pem"
+  printf '%s\n' 'export SSL_CERT_FILE="$HOME/.truststore.pem" CURL_CA_BUNDLE="$HOME/.truststore.pem" REQUESTS_CA_BUNDLE="$HOME/.truststore.pem"' "export no_proxy='*.hsbc,localhost' 
+  NO_PROXY='*.hsbc,localhost'" >> ~/.bashrc && source ~/.bashrc
 
-cat >> ~/.bashrc <<'EOF'
-export SSL_CERT_FILE="$HOME/.truststore.pem" CURL_CA_BUNDLE="$HOME/.truststore.pem" REQUESTS_CA_BUNDLE="$HOME/.truststore.pem"
-export no_proxy='*.hsbc,localhost' NO_PROXY='*.hsbc,localhost'
-EOF
-source ~/.bashrc
+  mkdir -p ~/.config/pip && printf '%s\n' '[global]' 'timeout = 120' 'index = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/pypi' 'index-url = 
+  https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/simple' 'cert = /home/user/.truststore.pem' > ~/.config/pip/pip.conf
+ 
+  sed -i '/_auth=/d' ~/.npmrc && printf '%s\n' '//gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/:_auth=dmFncmFudDp2YWdyYW50' >> ~/.npmrc
 
-mkdir -p ~/.config/pip && cat > ~/.config/pip/pip.conf <<'EOF'
-[global]
-timeout = 120
-index = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/pypi
-index-url = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/simple
-cert = /home/user/.truststore.pem
-EOF
+  pip download --no-deps six -d /tmp/x && npm view react version
 
-sed -i '/_auth=/d' ~/.npmrc && printf '%s\n' \
-  '//gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/:_auth=dmFncmFudDp2YWdyYW50' >> ~/.npmrc
-
-Проверка:
-
-pip download --no-deps six -d /tmp/x && npm view react version
-
-Если оба прошли — лиду, без единого секрета:
-
-Registry access is fixed on my side: ~/.config/pip/pip.conf, ~/.npmrc and the CA bundle are
-configured, and ~/.bashrc exports the SSL_CERT_FILE/REQUESTS_CA_BUNDLE/no_proxy variables —
-source it (or prefix commands with `source ~/.bashrc &&`) since your shell env does not
-persist between calls. Do not print those files. Verify with one pip download and one npm
-view, then run lane 09 from Task 1: install, backend tests, frontend type-check and build,
-one `recsys(fix): …` commit per cause. Tell me the exact filenames you expect in
-data/agenthub-export/. Stop before Task 7 — no push, no PR until I've read PROGRESS.md.

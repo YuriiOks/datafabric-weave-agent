@@ -182,20 +182,5 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-  Joseph — quick one: after docker login, pulls from nexus3.systems.uk.hsbc:18094 (the
-  docker-hub proxy) return 403; 18096 works fine. Is there an access request for the
-  docker-hub proxy, or do you pull falkordb from somewhere else?
 
-  А ждать его не обязательно: карточки лежат файлами на диске (best practise cards/UC…/BP_Card.md), граф для их чтения не нужен — у хаба есть парсер, и лид его уже правил. Лиду вместо пункта 1:
-
-  Graph stays down for now. For the eval's card cases, read the card markdown from disk with
-the existing card parser instead of the graph. Rerun the eval and label graph-dependent
-results as not verified.
-
-undici: try 7.29.0 locally as a package.json overrides entry without committing. If the
-registry serves it, run the frontend type-check, lint, build and tests and record the
-results in PROGRESS.md. Afterwards restore package.json and the lockfile to their committed
-state.
-
-Which env variable names does the LLM gateway need, and is there a local hub .env file in
-this workstation? Names only.
+printf '%s' 'PlFhDSSUwjweaO95ROpLXY0UZKRu9n9XkUmR1Q9pE9Th' | docker login nexus3.systems.uk.hsbc:18094 -u etzkqi0f --password-stdin

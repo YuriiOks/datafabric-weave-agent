@@ -170,3 +170,17 @@ text into the report.
 
 Output a markdown report. Field names, paths, counts, percentages and flag names are
 fine to include. Card content, source code and real use-case text are not.
+
+
+
+
+▎ 1. Yes, many-to-many. One agent can use N skills, and one skill can be used by N agents. In the Agent Hub export the "Agent Usage" sheet has one row per agent with a comma-separated list of skill IDs; the same skill ID shows up across several agents. (Skills can also declare dependencies on other skills and on MCP servers, but that is rare — about 11% of skills do it.)
+▎
+▎ 2. The MD files are in the skills marketplace repo on internal GitHub: org ETIV-core-ai-platform, repo gaip-agenthub-skills-marketplace, path skills/<skill-folder>/SKILL.md — one folder per skill. You may need to request read access to the org if you don't have it yet.
+▎
+▎ 3. Update for the last two weeks (for the Confluence page, "MCP integration"):
+▎ - Analysed the Agent Hub metadata export (agents, skills, MCP servers, knowledge sources) and the skills repository (291 skills). Documented the data-quality issues that block reliable recommendations — duplicate MCP identifiers, test records, skill files without a header, no schema validation in the skills pipeline — and defined the rules to handle each.
+▎ - Found and confirmed a defect in the hub's card ingestion: header fields with a non-standard spelling are dropped silently. One field (related use cases) was empty on every card because of this; fix verified across all cards. The same mechanism is the leading hypothesis for the "capabilities present, completeness score zero" case — tracing that field next.
+▎ - Designed the recommendation service: a validated component registry plus a pipeline where the model can only select from catalogue components and every recommendation carries verifiable evidence. The MCP part exposes the same service as three tools — duplicate check, component suggestion, card retrieval.
+▎ - Proof-of-concept build started this week in the workstation; target is a working UI plus the MCP tools on a branch for review.
+▎ - Prepared an overview deck for onboarding the new joiners (attached) — it covers the method and how it extends to data products.

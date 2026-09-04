@@ -177,10 +177,16 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-Registry access is fixed on my side — verified: pip download works, npm view works.
-~/.config/pip/pip.conf, ~/.npmrc and the CA bundle are configured; ~/.bashrc exports
-SSL_CERT_FILE / REQUESTS_CA_BUNDLE / no_proxy. Your shell env does not persist between
-calls, so prefix install and test commands with `source ~/.bashrc &&`. Do not print those
-files. Run lane 09 from Task 1: install, backend tests, frontend type-check and build, one
-`recsys(fix): …` commit per cause. Tell me the exact filenames you expect in
-data/agenthub-export/. Stop before Task 7 — no push, no PR until I've read PROGRESS.md.
+
+  1. npm: run the failing install with --loglevel verbose and read the exact URL of the 401.
+     Then add a second _auth line to ~/.npmrc scoped to the host root
+     (//gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/:_auth=) with the same value as the existing
+     /repository/ line, and retry. If the tarball host differs from the registry host, scope
+     the new line to that host instead. Report the URL shape (host and first path segment
+     only) and the result.
+  2. Ingest: install openpyxl into backend/.venv only, use it once to split the Prod xlsx
+     into the four CSVs, then ingest from CSV. openpyxl stays out of requirements — the PR
+     adds no dependency.
+  Then continue lane 09: frontend type-check, lint, build, tests; ingest; eval. Pause before
+  task 7. 
+  

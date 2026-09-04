@@ -183,4 +183,7 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-printf '%s' 'PlFhDSSUwjweaO95ROpLXY0UZKRu9n9XkUmR1Q9pE9Th' | docker login nexus3.systems.uk.hsbc:18094 -u etzkqi0f --password-stdin
+@Marcin @Apolonia @Joseph — quick note on the component recommendations PoC: the build is
+complete and the real Agent Hub export is loaded, but I've hit environment issues starting
+it in the workstation, so no demo in this call. I'll try to show the registry on the real
+data at the daily in half an hour — details there.

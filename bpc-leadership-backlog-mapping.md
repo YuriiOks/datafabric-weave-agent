@@ -176,36 +176,37 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-Registry access is solved — no personal token needed. gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc
-is now a front for "Adda"; downloads use the documented non-secret pair vagrant:vagrant
-(agreed with Cybersecurity, allowed in config files). Set it up, then run the verification
-pass.
 
-1. Truststore:
-   curl --fail -k -o ${HOME}/.truststore.pem \
-     https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/gbm-tools/certs/truststore-prod-2.0.12.pem
-   Append to ~/.bashrc and also prefix every install command in this session, since your
-   shell env does not persist between calls:
-   export SSL_CERT_FILE=$HOME/.truststore.pem CURL_CA_BUNDLE=$HOME/.truststore.pem REQUESTS_CA_BUNDLE=$HOME/.truststore.pem
-   export no_proxy='*.hsbc,localhost' NO_PROXY='*.hsbc,localhost'
+curl --fail -k -o "$HOME/.truststore.pem" \
+  "https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/gbm-tools/certs/truststore-prod-2.0.12.pem"
 
-2. ~/.config/pip/pip.conf (create, overwrite if present):
-   [global]
-   timeout = 120
-   index = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/pypi
-   index-url = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/simple
-   cert = /home/user/.truststore.pem
-   If the backend uses uv, mirror index-url into UV_DEFAULT_INDEX (or UV_INDEX_URL) too.
+cat >> ~/.bashrc <<'EOF'
+export SSL_CERT_FILE="$HOME/.truststore.pem" CURL_CA_BUNDLE="$HOME/.truststore.pem" REQUESTS_CA_BUNDLE="$HOME/.truststore.pem"
+export no_proxy='*.hsbc,localhost' NO_PROXY='*.hsbc,localhost'
+EOF
+source ~/.bashrc
 
-3. ~/.npmrc: keep the existing cafile/strict-ssl/registry lines; replace the _auth line with
-   //gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/:_auth=dmFncmFudDp2YWdyYW50
-   (that is base64 of vagrant:vagrant). Keep always-auth=true.
+mkdir -p ~/.config/pip && cat > ~/.config/pip/pip.conf <<'EOF'
+[global]
+timeout = 120
+index = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/pypi
+index-url = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/simple
+cert = /home/user/.truststore.pem
+EOF
 
-4. Verify: `pip download --no-deps six -d /tmp/x` and `npm view react version`. If npm still
-   returns 401, stop and tell me — I'll fetch the NPM-specific guide. If pip returns 407,
-   the no_proxy export is missing from that command.
+sed -i '/_auth=/d' ~/.npmrc && printf '%s\n' \
+  '//gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/:_auth=dmFncmFudDp2YWdyYW50' >> ~/.npmrc
 
-5. Both green → lane 09 from Task 1: install, backend tests, frontend type-check and build,
-   fix red one `recsys(fix): …` commit per cause. Ingest and eval need the export, which I'll
-   drop into data/agenthub-export/ — tell me the exact filenames you expect. Stop before
-   Task 7: no push, no PR until I've read PROGRESS.md.
+Проверка:
+
+pip download --no-deps six -d /tmp/x && npm view react version
+
+Если оба прошли — лиду, без единого секрета:
+
+Registry access is fixed on my side: ~/.config/pip/pip.conf, ~/.npmrc and the CA bundle are
+configured, and ~/.bashrc exports the SSL_CERT_FILE/REQUESTS_CA_BUNDLE/no_proxy variables —
+source it (or prefix commands with `source ~/.bashrc &&`) since your shell env does not
+persist between calls. Do not print those files. Verify with one pip download and one npm
+view, then run lane 09 from Task 1: install, backend tests, frontend type-check and build,
+one `recsys(fix): …` commit per cause. Tell me the exact filenames you expect in
+data/agenthub-export/. Stop before Task 7 — no push, no PR until I've read PROGRESS.md.

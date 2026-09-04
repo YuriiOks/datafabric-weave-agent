@@ -180,10 +180,43 @@ fine to include. Card content, source code and real use-case text are not.
   Нажми последний Copy to Clipboard (base64 «user:password» — Nexus уже посчитал) и в bash-терминал одной строкой, вставив значение вместо PASTE:
 
 
+⏺️ Demo polish pass on the registry UI. Dev server stays up; work in small commits, tsc and
+  eslint on src/features/recsys after each group, then tell me when the dev server has
+  reloaded. No backend changes unless an item needs a field the API already has.
 
+  Status page (/registry/status)
+  1. Sort the quality-flag histogram by count, descending.
+  2. Colour blocking flags red and informational flags grey — same palette as the list —
+     and add a one-line legend under the heading: "Blocking flags exclude a component from
+     recommendations; informational flags do not."
+  3. Collapse "Unconsumed front-matter keys" by default; put the count in the heading.
+  4. Add a one-sentence summary under the version line, computed from the counts:
+     "2,232 components across four types; 1,499 eligible for recommendations."
+  
+  Registry list (/registry)
+  5. Add a summary line above the table: total components, eligible count, and the range
+     shown on this page (e.g. "Showing 1–25 of 2,232 · 1,499 eligible").
+  6. Humanise flag labels everywhere (empty_description → "Empty description"); keep the
+     raw key as the tooltip. Same for type labels if any are still raw.
+  7. Make the whole row clickable, not only the name.
+  
+  Component detail (/registry/:id)
+  8. De-duplicate "Used by", "Uses" and "Depends on" by component id — an agent that
+     references two tools of one MCP server currently appears twice.
+  9. Humanise "Source reference": "sheet=Agent Usage;row=1513" → "Agent Usage sheet,
+     row 1513"; "skills repo" references likewise.
+  10. Add a "Back to registry" link above the title that preserves the previous filters.
+  11. Hide rows whose value is "—" behind a "Show empty fields" toggle, off by default, so
+      the card reads as five or six populated rows.
+  
+  Recommend page (/recommend), off mode
+  12. Check the empty state copy. It should say plainly that the model is not configured in
+      this environment and that the registry is still browsable, with a link to /registry.
+      No stack traces, no internal reason codes on screen — keep those in the details
+      expander.
+      
+  When done: commit as recsys(ui): demo polish (one or several commits), run the frontend
+  tests for the feature, and report what changed and anything you chose not to do.
+  
 
-
-@Marcin @Apolonia @Joseph — quick note on the component recommendations PoC: the build is
-complete and the real Agent Hub export is loaded, but I've hit environment issues starting
-it in the workstation, so no demo in this call. I'll try to show the registry on the real
-data at the daily in half an hour — details there.
+ 

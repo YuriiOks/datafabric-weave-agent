@@ -176,15 +176,11 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-  curl --fail -k -o "$HOME/.truststore.pem" "https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/gbm-tools/certs/truststore-prod-2.0.12.pem"
 
-  printf '%s\n' 'export SSL_CERT_FILE="$HOME/.truststore.pem" CURL_CA_BUNDLE="$HOME/.truststore.pem" REQUESTS_CA_BUNDLE="$HOME/.truststore.pem"' "export no_proxy='*.hsbc,localhost' 
-  NO_PROXY='*.hsbc,localhost'" >> ~/.bashrc && source ~/.bashrc
-
-  mkdir -p ~/.config/pip && printf '%s\n' '[global]' 'timeout = 120' 'index = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/pypi' 'index-url = 
-  https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/simple' 'cert = /home/user/.truststore.pem' > ~/.config/pip/pip.conf
- 
-  sed -i '/_auth=/d' ~/.npmrc && printf '%s\n' '//gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/:_auth=dmFncmFudDp2YWdyYW50' >> ~/.npmrc
-
-  pip download --no-deps six -d /tmp/x && npm view react version
-
+Registry access is fixed on my side — verified: pip download works, npm view works.
+~/.config/pip/pip.conf, ~/.npmrc and the CA bundle are configured; ~/.bashrc exports
+SSL_CERT_FILE / REQUESTS_CA_BUNDLE / no_proxy. Your shell env does not persist between
+calls, so prefix install and test commands with `source ~/.bashrc &&`. Do not print those
+files. Run lane 09 from Task 1: install, backend tests, frontend type-check and build, one
+`recsys(fix): …` commit per cause. Tell me the exact filenames you expect in
+data/agenthub-export/. Stop before Task 7 — no push, no PR until I've read PROGRESS.md.

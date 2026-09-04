@@ -188,12 +188,14 @@ fine to include. Card content, source code and real use-case text are not.
 
   А ждать его не обязательно: карточки лежат файлами на диске (best practise cards/UC…/BP_Card.md), граф для их чтения не нужен — у хаба есть парсер, и лид его уже правил. Лиду вместо пункта 1:
 
-  1. The docker-hub proxy (18094) is a role I don't have yet; FalkorDB stays down. For the
-     eval's card-based cases, read the card from disk with the hub's existing card parser
-     when the graph is unavailable — same fields, no graph dependency. Rerun the eval; mark
-     anything genuinely graph-dependent as "not verified: graph unavailable" in the report
-     rather than skipping silently.
-  2. undici — as in my previous message: local override to 7.29.0, verify, record, revert.
-  3. Model access — list the exact env keys the LLM gateway needs (names only) and whether a
-     local hub .env exists here.
-  Pause before task 7.
+  Graph stays down for now. For the eval's card cases, read the card markdown from disk with
+the existing card parser instead of the graph. Rerun the eval and label graph-dependent
+results as not verified.
+
+undici: try 7.29.0 locally as a package.json overrides entry without committing. If the
+registry serves it, run the frontend type-check, lint, build and tests and record the
+results in PROGRESS.md. Afterwards restore package.json and the lockfile to their committed
+state.
+
+Which env variable names does the LLM gateway need, and is there a local hub .env file in
+this workstation? Names only.

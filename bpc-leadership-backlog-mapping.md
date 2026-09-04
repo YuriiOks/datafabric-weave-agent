@@ -175,13 +175,14 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-Yes — commit now; nothing pushed, no PR yet.
-1. parser.py alone as the first commit: "fix(ingestion): accept singular related-use-case
-   front-matter key". Decision: keep it.
-2. Then one commit per lane, 01→09, staging only each lane's owned paths; the three guarded
-   touches go with lane 01; PROGRESS.md, handoffs/ and PR-BODY.md go with lane 09.
-3. Relaxation accepted: add the nav entry in TopNavLayout.tsx as guarded touch 4 — one block,
-   inside the lane 06 commit — and update PROGRESS.md and PR-BODY.md to say four touches.
-4. Never stage CLAUDE.md, docker-compose.yml, Dockerfile, .env.example, .gitignore.
-When done, print `git log --oneline main..HEAD` and `git status --short`, then stop and wait.
-Credentials are on my side; I'll tell you when the verification pass can run.
+
+1. Commit ARCHITECTURE.md only, as docs/recsys/ARCHITECTURE.md (the hub already owns
+   docs/ARCHITECTURE.md), one commit "docs(recsys): design note". Before committing, grep it
+   for "lane", "wave", "swarm", "subagent", "lead", "Claude" and rewrite those sentences as
+   plain design prose — it must read as a design document, not a build script. Point the
+   README reference at the new path. The 00–09 briefs and ALL-IN-ONE.md stay uncommitted.
+   Leave agents/ alone — I'll delete it myself.
+2. Desktop nav: add the "Recommend" button next to the hand-written desktop entries in
+   TopNavLayout.tsx — same file, still touch 4 — as a `recsys(fix): desktop nav entry`
+   commit. Drop the "desktop nav has no entry yet" caveat from PROGRESS.md and PR-BODY.md.
+3. Then print git log --oneline main..HEAD and git status --short again and stop.

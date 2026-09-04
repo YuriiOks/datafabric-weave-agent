@@ -181,13 +181,19 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-  Docker registry auth is done on my side (docker login succeeded). Bring Postgres up with
-  docker compose, run the ingest against the database, then the eval, and commit
-  INGEST-REPORT.md and EVAL-REPORT.md.
-  Then undici: first say whether jsdom/undici@7.28.0 is in main's frontend/package-lock.json
-  or was introduced by our lanes. Read the 403 body for the policy reason. If it is a
-  vulnerability fixed in a later undici, pin that version via package.json overrides — that is
-  the remediation the policy asks for, one commit, noted in PROGRESS.md. If it is a different
-  policy (age, licence), stop and report. Then frontend type-check, lint, build, tests.
-  Pause before task 7.
 
+  Joseph — quick one: after docker login, pulls from nexus3.systems.uk.hsbc:18094 (the
+  docker-hub proxy) return 403; 18096 works fine. Is there an access request for the
+  docker-hub proxy, or do you pull falkordb from somewhere else?
+
+  А ждать его не обязательно: карточки лежат файлами на диске (best practise cards/UC…/BP_Card.md), граф для их чтения не нужен — у хаба есть парсер, и лид его уже правил. Лиду вместо пункта 1:
+
+  1. The docker-hub proxy (18094) is a role I don't have yet; FalkorDB stays down. For the
+     eval's card-based cases, read the card from disk with the hub's existing card parser
+     when the graph is unavailable — same fields, no graph dependency. Rerun the eval; mark
+     anything genuinely graph-dependent as "not verified: graph unavailable" in the report
+     rather than skipping silently.
+  2. undici — as in my previous message: local override to 7.29.0, verify, record, revert.
+  3. Model access — list the exact env keys the LLM gateway needs (names only) and whether a
+     local hub .env exists here.
+  Pause before task 7.

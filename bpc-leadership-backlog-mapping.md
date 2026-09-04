@@ -179,13 +179,5 @@ fine to include. Card content, source code and real use-case text are not.
 
   Нажми последний Copy to Clipboard (base64 «user:password» — Nexus уже посчитал) и в bash-терминал одной строкой, вставив значение вместо PASTE:
 
-  sed -i '/npm.systems.uk.hsbc/d' ~/.npmrc && printf '%s\n' '//npm.systems.uk.hsbc:8081/nexus/repository/:_auth=PASTE' >> ~/.npmrc
 
-  Проверка, ждём 200:
-
-  curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Basic PASTE" "https://npm.systems.uk.hsbc:8081/nexus/repository/npm-group/zwitch/-/zwitch-2.0.4.tgz"
-
-  Потом history -c, и лиду:
-
-  Tarball host auth is in ~/.npmrc now (my token, scoped to npm.systems.uk.hsbc). Retry the
-  frontend install and continue lane 09; pause before task 7.
+printf '%s' 'PASSCODE' | docker login nexus3.systems.uk.hsbc:18096 -u NAMECODE --password-stdin

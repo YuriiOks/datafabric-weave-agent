@@ -176,13 +176,36 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-1. Commit ARCHITECTURE.md only, as docs/recsys/ARCHITECTURE.md (the hub already owns
-   docs/ARCHITECTURE.md), one commit "docs(recsys): design note". Before committing, grep it
-   for "lane", "wave", "swarm", "subagent", "lead", "Claude" and rewrite those sentences as
-   plain design prose — it must read as a design document, not a build script. Point the
-   README reference at the new path. The 00–09 briefs and ALL-IN-ONE.md stay uncommitted.
-   Leave agents/ alone — I'll delete it myself.
-2. Desktop nav: add the "Recommend" button next to the hand-written desktop entries in
-   TopNavLayout.tsx — same file, still touch 4 — as a `recsys(fix): desktop nav entry`
-   commit. Drop the "desktop nav has no entry yet" caveat from PROGRESS.md and PR-BODY.md.
-3. Then print git log --oneline main..HEAD and git status --short again and stop.
+Registry access is solved — no personal token needed. gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc
+is now a front for "Adda"; downloads use the documented non-secret pair vagrant:vagrant
+(agreed with Cybersecurity, allowed in config files). Set it up, then run the verification
+pass.
+
+1. Truststore:
+   curl --fail -k -o ${HOME}/.truststore.pem \
+     https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/gbm-tools/certs/truststore-prod-2.0.12.pem
+   Append to ~/.bashrc and also prefix every install command in this session, since your
+   shell env does not persist between calls:
+   export SSL_CERT_FILE=$HOME/.truststore.pem CURL_CA_BUNDLE=$HOME/.truststore.pem REQUESTS_CA_BUNDLE=$HOME/.truststore.pem
+   export no_proxy='*.hsbc,localhost' NO_PROXY='*.hsbc,localhost'
+
+2. ~/.config/pip/pip.conf (create, overwrite if present):
+   [global]
+   timeout = 120
+   index = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/pypi
+   index-url = https://vagrant:vagrant@gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/pypi-group/simple
+   cert = /home/user/.truststore.pem
+   If the backend uses uv, mirror index-url into UV_DEFAULT_INDEX (or UV_INDEX_URL) too.
+
+3. ~/.npmrc: keep the existing cafile/strict-ssl/registry lines; replace the _auth line with
+   //gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc/repository/:_auth=dmFncmFudDp2YWdyYW50
+   (that is base64 of vagrant:vagrant). Keep always-auth=true.
+
+4. Verify: `pip download --no-deps six -d /tmp/x` and `npm view react version`. If npm still
+   returns 401, stop and tell me — I'll fetch the NPM-specific guide. If pip returns 407,
+   the no_proxy export is missing from that command.
+
+5. Both green → lane 09 from Task 1: install, backend tests, frontend type-check and build,
+   fix red one `recsys(fix): …` commit per cause. Ingest and eval need the export, which I'll
+   drop into data/agenthub-export/ — tell me the exact filenames you expect. Stop before
+   Task 7: no push, no PR until I've read PROGRESS.md.

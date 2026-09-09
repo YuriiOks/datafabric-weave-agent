@@ -187,22 +187,5 @@ Suggested message:
 
 ---
 
-Hi all, sharing three updated documents:
-
-- **Architecture** — the proposed AI contracts, component graph and source-refresh approach, keeping Postgres and FalkorDB.
-- **Three-week implementation plan** — the 9–29 September work, responsibilities, dependencies and acceptance gates.
-- **Component recommendations** — the detailed design for Skills, MCP servers and Agents, including evaluation and rollout.
-
-Joseph, could you please start with **§19 “Owner decisions” in the architecture** and **§1 and §4 in the implementation plan**? The detailed questions are inside the expandable sections.
-
-The main points we need to agree are:
-
-1. **September scope:** what should satisfy each existing recommendation ticket? The plan proposes foundation work with an optional lexical baseline; the full model-assessed engine is described separately and is currently unscheduled.
-2. **Ticket structure:** are you happy with a fourth parent for the shared foundation, alongside the existing Skills, MCP and Agents tickets?
-3. **Graph boundary:** does a separate component projection within the existing FalkorDB satisfy the intended “no new graph” constraint? See D1.
-4. **Source and platform owners:** who should confirm authoritative IDs/exports, refresh access, authorisation and retention? See D2–D5 and the refresh questions.
-5. **Quality acceptance:** who should review the relevance cases and agree the quality, latency and cost criteria before we enable assessed recommendations? See D7 and the recommendations document’s evaluation section.
-
-For questions owned elsewhere, naming the right person would help us resolve them and finalise the scope and acceptance criteria.
-
----
+We already have an established Claude Code harness and documentation in the repository covering our development workflow. The HTML files make this particular proposal easier for the wider team to review.
+Could you first check the existing repository docs and point out which application-wide conventions or architectural decisions are missing? We can then update the relevant documentation directly. That would give us a concrete gap to address and keep everything consistent.

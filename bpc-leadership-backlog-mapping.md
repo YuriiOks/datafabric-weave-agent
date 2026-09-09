@@ -181,19 +181,28 @@ fine to include. Card content, source code and real use-case text are not.
 
 
 
-Good demo. Next phase is the live recommendation run; gateway values are on their way.
-Until they land:
-1. Read how the hub itself calls the model gateway (client, auth, retries, timeouts,
-   model names) and confirm the recsys gateway client reuses it rather than duplicating
-   it. If it duplicates, refactor to reuse — one commit.
-2. Review pass over pipeline/profile.py, assess.py, verify.py, score.py, synth.py and the
-   prompt templates as if the first live call were in ten minutes: token budget per call,
-   what happens on a malformed model response, on a timeout, on an empty candidate list.
-   Fix what you find, tests first, one commit per cause. Write the findings into
-   PROGRESS.md.
-3. Prepare the live smoke script from lane 09 task 3 so that the moment the values are in
-   place, the three requests run with RECSYS_LLM_RECORD=1 and fixtures land in the replay
-   directory.
-Report when 1–3 are done. No push yet.
+Yes—send all three together, with a clear request for decisions. The main question is **what counts as done for the three recommendation tickets by 30 September**.
 
-3. Ветка. Сегодня прочитай PROGRESS.md глазами — 10 минут — и после этого разрешим push и draft PR. Марч
+Suggested message:
+
+---
+
+Hi all, sharing three updated documents:
+
+- **Architecture** — the proposed AI contracts, component graph and source-refresh approach, keeping Postgres and FalkorDB.
+- **Three-week implementation plan** — the 9–29 September work, responsibilities, dependencies and acceptance gates.
+- **Component recommendations** — the detailed design for Skills, MCP servers and Agents, including evaluation and rollout.
+
+Joseph, could you please start with **§19 “Owner decisions” in the architecture** and **§1 and §4 in the implementation plan**? The detailed questions are inside the expandable sections.
+
+The main points we need to agree are:
+
+1. **September scope:** what should satisfy each existing recommendation ticket? The plan proposes foundation work with an optional lexical baseline; the full model-assessed engine is described separately and is currently unscheduled.
+2. **Ticket structure:** are you happy with a fourth parent for the shared foundation, alongside the existing Skills, MCP and Agents tickets?
+3. **Graph boundary:** does a separate component projection within the existing FalkorDB satisfy the intended “no new graph” constraint? See D1.
+4. **Source and platform owners:** who should confirm authoritative IDs/exports, refresh access, authorisation and retention? See D2–D5 and the refresh questions.
+5. **Quality acceptance:** who should review the relevance cases and agree the quality, latency and cost criteria before we enable assessed recommendations? See D7 and the recommendations document’s evaluation section.
+
+For questions owned elsewhere, naming the right person would help us resolve them and finalise the scope and acceptance criteria.
+
+---

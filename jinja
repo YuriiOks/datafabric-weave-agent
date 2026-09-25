@@ -1,0 +1,25 @@
+my_project/
+│
+├── static/                  # CSS, JS, and Images
+│   ├── css/
+│   └── js/
+│
+└── templates/               # Root template directory
+    ├── layouts/             # Base structures/skeletons
+    │   ├── base.html        # Main HTML skeleton
+    │   └── dashboard.html   # Specific sub-layout (e.g., admin area)
+    │
+    ├── partials/            # Component snippets included in layouts
+    │   ├── _navbar.html     # Website top navigation
+    │   └── _footer.html     # Website footer
+    │
+    ├── macros/              # Reusable template logic functions
+    │   └── _forms.html      # Custom input or button templates
+    │
+    └── views/               # Page-specific content that extends layouts
+        ├── index.html       # Home page
+        ├── auth/            # Grouped view folders
+        │   ├── login.html
+        │   └── register.html
+        └── errors/
+            └── 404.html

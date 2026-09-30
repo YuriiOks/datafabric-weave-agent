@@ -1,0 +1,1706 @@
+name: Main tests
+
+on:
+  push:
+    branches:
+      - master
+      - staging
+      - production
+  pull_request:
+    branches:
+      - master
+      - staging
+      - production
+      - '*avv*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_IMAGE_REGISTRY: ghcr.io
+  APP_IMAGE_REPO: ghcr.io/jupus-legal/jupus-app-ci
+  DB_IMAGE_REPO: ghcr.io/jupus-legal/jupus-db-ci
+  REDIS_IMAGE_REPO: ghcr.io/jupus-legal/jupus-redis-ci
+  BEA_SIDECAR_IMAGE_REPO: ghcr.io/jupus-legal/jupus-bea-sidecar-ci
+  FILE_CONVERTER_IMAGE_REPO: ghcr.io/jupus-legal/jupus-file-converter-ci
+
+jobs:
+  # One job resolves every content-addressed tag this workflow can publish,
+  # and the bake_* jobs below build only what GHCR is actually missing
+  # (PHX-838). Hashing plus `docker manifest inspect` is 15-20 s of work, and
+  # GitHub bills a started job by the full minute: four separate lookup jobs
+  # cost four billed minutes per run to discover, >99 % of the time, that
+  # there is nothing to build.
+  #
+  # This stays on ubuntu-latest rather than moving to RunsOn. RunsOn is
+  # cheaper per minute, but a Flex boot costs ~60 s and this job gates
+  # everything downstream — paying that on every run to speed up a build that
+  # happens in well under 1 % of them is the wrong trade.
+  #
+  # `./app` is bind-mounted at runtime so it is not part of the app hash —
+  # otherwise every backend PR would miss the cache. The recipes themselves
+  # live in .github/actions/ci-image-refs, shared with the e2e lane.
+  resolve_image_tags:
+    runs-on: ubuntu-latest
+    # Median 15-20 s, and every backend job waits on it. The ceiling is here
+    # for the failure mode rather than the workload: a `docker manifest
+    # inspect` that hangs on GHCR would otherwise hold the whole lane for the
+    # 360-minute default, billed by the minute the entire time.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      app_image_ref: ${{ steps.refs.outputs.app_image_ref }}
+      app_exists: ${{ steps.check.outputs.app_exists }}
+      redis_image_ref: ${{ steps.refs.outputs.redis_image_ref }}
+      redis_exists: ${{ steps.check.outputs.redis_exists }}
+      sidecar_image_ref: ${{ steps.refs.outputs.sidecar_image_ref }}
+      sidecar_exists: ${{ steps.check.outputs.sidecar_exists }}
+      file_converter_image_ref: ${{ steps.refs.outputs.file_converter_image_ref }}
+      converter_exists: ${{ steps.check.outputs.converter_exists }}
+      # No db image from ./docker/postgres/Dockerfile here: the `db` service is
+      # served by the content-addressed schema-*/migrated-* clusters, which
+      # every consumer pulls instead. Building it would push a tag nobody reads.
+      db_schema_image_ref: ${{ steps.refs.outputs.db_schema_image_ref }}
+      db_schema_exists: ${{ steps.check.outputs.db_schema_exists }}
+      db_migrated_image_ref: ${{ steps.refs.outputs.db_migrated_image_ref }}
+      db_migrated_exists: ${{ steps.check.outputs.db_migrated_exists }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Compute image refs
+        id: refs
+        uses: ./.github/actions/ci-image-refs
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check which images already exist in the registry
+        id: check
+        env:
+          APP_IMAGE_REF: ${{ steps.refs.outputs.app_image_ref }}
+          REDIS_IMAGE_REF: ${{ steps.refs.outputs.redis_image_ref }}
+          SIDECAR_IMAGE_REF: ${{ steps.refs.outputs.sidecar_image_ref }}
+          FILE_CONVERTER_IMAGE_REF: ${{ steps.refs.outputs.file_converter_image_ref }}
+          DB_SCHEMA_IMAGE_REF: ${{ steps.refs.outputs.db_schema_image_ref }}
+          DB_MIGRATED_IMAGE_REF: ${{ steps.refs.outputs.db_migrated_image_ref }}
+        run: |
+          check_image() {
+            local ref="$1"
+            local name="$2"
+            if docker manifest inspect "$ref" > /dev/null 2>&1; then
+              echo "Image ${ref} already exists, skipping build."
+              echo "${name}_exists=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Image ${ref} not found, will build."
+              echo "${name}_exists=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          check_image "$APP_IMAGE_REF" app
+          check_image "$REDIS_IMAGE_REF" redis
+          check_image "$SIDECAR_IMAGE_REF" sidecar
+          check_image "$FILE_CONVERTER_IMAGE_REF" converter
+          check_image "$DB_SCHEMA_IMAGE_REF" db_schema
+          check_image "$DB_MIGRATED_IMAGE_REF" db_migrated
+
+  bake_app_image:
+    needs: resolve_image_tags
+    if: needs.resolve_image_tags.outputs.app_exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Compute LFS cache key
+        id: lfs_key
+        run: bash .github/scripts/compute_lfs_cache_key.sh "ml_models/**"
+
+      - name: Cache Git LFS objects
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .git/lfs
+          key: git-lfs-${{ runner.os }}-${{ steps.lfs_key.outputs.hash }}
+
+      # Only ever reached on a cache miss, because the whole job is. The hash
+      # that produced the tag was computed in resolve_image_tags against an
+      # unsmudged checkout, so the smudge here cannot move it — the same
+      # ordering ensure-e2e-images.sh relies on to land on the same tag.
+      - name: Pull LFS files
+        run: git lfs pull --include="ml_models/**"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build and push app image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./docker/app/Dockerfile
+          target: runtime
+          build-args: ENVIRONMENT=dev
+          push: true
+          tags: ${{ needs.resolve_image_tags.outputs.app_image_ref }}
+          # Rolling layer cache (shared across hashes) so even a rebuild only
+          # has to redo the layers after the changed one.
+          cache-from: type=registry,ref=${{ env.APP_IMAGE_REPO }}:cache
+          cache-to: type=registry,ref=${{ env.APP_IMAGE_REPO }}:cache,mode=max
+
+  # Content-addressed redis, bea-sidecar, and file-converter images.
+  # Their Dockerfiles almost never change, so `docker compose build` on
+  # every test job was uncached work (LibreOffice apt on file-converter,
+  # plus an LFS download of the ~100 MB KSW toolkit zip for the sidecar).
+  # The job runs when at least one of the three is missing; each build step
+  # is still gated on its own tag, so a miss on one does not rebuild the others.
+  bake_support_images:
+    needs: resolve_image_tags
+    if: |
+      needs.resolve_image_tags.outputs.redis_exists == 'false' ||
+      needs.resolve_image_tags.outputs.sidecar_exists == 'false' ||
+      needs.resolve_image_tags.outputs.converter_exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Compute sidecar LFS cache key
+        if: needs.resolve_image_tags.outputs.sidecar_exists == 'false'
+        id: lfs_key
+        run: bash .github/scripts/compute_lfs_cache_key.sh "bea-sidecar/vendor/toolkit/latest/**"
+
+      - name: Cache sidecar LFS objects
+        if: needs.resolve_image_tags.outputs.sidecar_exists == 'false'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .git/lfs
+          key: git-lfs-${{ runner.os }}-${{ steps.lfs_key.outputs.hash }}
+
+      - name: Pull sidecar LFS files
+        if: needs.resolve_image_tags.outputs.sidecar_exists == 'false'
+        run: git lfs pull --include="bea-sidecar/vendor/toolkit/latest/**"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build and push redis image
+        if: needs.resolve_image_tags.outputs.redis_exists == 'false'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./docker/redis/Dockerfile
+          push: true
+          tags: ${{ needs.resolve_image_tags.outputs.redis_image_ref }}
+          cache-from: type=registry,ref=${{ env.REDIS_IMAGE_REPO }}:cache
+          cache-to: type=registry,ref=${{ env.REDIS_IMAGE_REPO }}:cache,mode=max
+
+      - name: Build and push bea-sidecar image
+        if: needs.resolve_image_tags.outputs.sidecar_exists == 'false'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./docker/bea-sidecar/Dockerfile
+          push: true
+          tags: ${{ needs.resolve_image_tags.outputs.sidecar_image_ref }}
+          cache-from: type=registry,ref=${{ env.BEA_SIDECAR_IMAGE_REPO }}:cache
+          cache-to: type=registry,ref=${{ env.BEA_SIDECAR_IMAGE_REPO }}:cache,mode=max
+
+      - name: Build and push file-converter image
+        if: needs.resolve_image_tags.outputs.converter_exists == 'false'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./docker/file-converter/Dockerfile
+          push: true
+          tags: ${{ needs.resolve_image_tags.outputs.file_converter_image_ref }}
+          cache-from: type=registry,ref=${{ env.FILE_CONVERTER_IMAGE_REPO }}:cache
+          cache-to: type=registry,ref=${{ env.FILE_CONVERTER_IMAGE_REPO }}:cache,mode=max
+
+  # Content-addressed Postgres clusters with baked PGDATA (PHX-801).
+  # schema-<hash>: syncdb ``jupus_template`` for pytest --nomigrations.
+  # migrated-<hash>: golden master + migrate for type generation / E2E.
+  # The bake jobs run only on a miss and need the app image in GHCR, so they
+  # wait on bake_app_image and treat its skip (cache hit) as success.
+  bake_db_schema_image:
+    needs: [resolve_image_tags, bake_app_image]
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.resolve_image_tags.result == 'success' &&
+      needs.resolve_image_tags.outputs.db_schema_exists == 'false' &&
+      (needs.bake_app_image.result == 'success' || needs.bake_app_image.result == 'skipped')
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-8
+    timeout-minutes: 45
+    # Runs that compute the same tag would otherwise each pay the full bake:
+    # the existence check above is a plain read, so all of them see "not
+    # found". That is not hypothetical — merging master into several open PRs
+    # gives them all the same new tag at once. Keyed on the tag, so unrelated
+    # bakes still run in parallel; the loser finds the pushed image in the
+    # guard at the top of bake-postgres-image.sh and exits without work.
+    concurrency:
+      group: bake-db-${{ needs.resolve_image_tags.outputs.db_schema_image_ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Setup environment
+        run: |
+          mkdir -p .envs/private
+          echo "${{ secrets.AWS_SCM_CREDENTIALS_DEVELOPMENT }}" > .envs/private/dev.env
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt app image
+        env:
+          IMAGE_REF: ${{ needs.resolve_image_tags.outputs.app_image_ref }}
+        run: |
+          docker pull "$IMAGE_REF"
+          docker tag "$IMAGE_REF" jupus-app
+
+      - name: Fetch POSTGRES_PASSWORD for initdb
+        run: bash scripts/ci/fetch-postgres-password.sh
+
+      - name: Bake and push schema image
+        env:
+          MODE: schema
+          IMAGE_REF: ${{ needs.resolve_image_tags.outputs.db_schema_image_ref }}
+        run: bash scripts/ci/bake-postgres-image.sh
+
+  bake_db_migrated_image:
+    needs: [resolve_image_tags, bake_app_image]
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.resolve_image_tags.result == 'success' &&
+      needs.resolve_image_tags.outputs.db_migrated_exists == 'false' &&
+      (needs.bake_app_image.result == 'success' || needs.bake_app_image.result == 'skipped')
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-8
+    timeout-minutes: 45
+    # See bake_db_schema_image: one bake per tag, the rest wait and then find
+    # it already pushed.
+    concurrency:
+      group: bake-db-${{ needs.resolve_image_tags.outputs.db_migrated_image_ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Setup environment
+        run: |
+          mkdir -p .envs/private
+          echo "${{ secrets.AWS_SCM_CREDENTIALS_DEVELOPMENT }}" > .envs/private/dev.env
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt app image
+        env:
+          IMAGE_REF: ${{ needs.resolve_image_tags.outputs.app_image_ref }}
+        run: |
+          docker pull "$IMAGE_REF"
+          docker tag "$IMAGE_REF" jupus-app
+
+      - name: Fetch POSTGRES_PASSWORD for initdb
+        run: bash scripts/ci/fetch-postgres-password.sh
+
+      - name: Bake and push migrated image
+        env:
+          MODE: migrated
+          IMAGE_REF: ${{ needs.resolve_image_tags.outputs.db_migrated_image_ref }}
+        run: bash scripts/ci/bake-postgres-image.sh
+
+  check_backend_linting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          version: "0.11.7"
+
+      - name: "Check linter"
+        working-directory: app
+        run: uvx ruff@0.8.4 check . --config pyproject.toml
+
+      - name: Set up Node.js for CI workflow contracts
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: "Check CI workflow contracts"
+        run: |
+          uvx ruff@0.8.4 check tests/test_ci --config app/pyproject.toml
+          uvx ruff@0.8.4 format --check tests/test_ci --config app/pyproject.toml
+          uvx --with pyyaml==6.0.3 pytest==7.4.0 tests/test_ci
+
+  check_backend_formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          version: "0.11.7"
+
+      - name: "Check formatting"
+        working-directory: app
+        run: uvx ruff@0.8.4 format --check . --config pyproject.toml
+
+  check_backend_migrations:
+    needs: [resolve_image_tags, bake_app_image]
+    # bake_app_image is skipped on a GHCR cache hit; `always()` plus an
+    # explicit skipped-or-success check lets this job still run.
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.resolve_image_tags.result == 'success' &&
+      (needs.bake_app_image.result == 'success' || needs.bake_app_image.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: "Setup environment"
+        # Seed only the AWS credentials that let load-aws-secrets.sh
+        # reach Secrets Manager at container boot. BEA_SIDECAR_* (API
+        # key + TLS keystore + CA PEM) and BEA_MTLS_* live in Secrets
+        # Manager under the "*app-secrets" naming convention and are
+        # materialised into the container env by
+        # docker/{app,bea-sidecar}/scripts/vault_entrypoint.sh.
+        run: |
+          mkdir -p .envs/private
+          echo "${{ secrets.AWS_SCM_CREDENTIALS_DEVELOPMENT }}" > .envs/private/dev.env
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt app image
+        env:
+          IMAGE_REF: ${{ needs.resolve_image_tags.outputs.app_image_ref }}
+        run: |
+          docker pull "$IMAGE_REF"
+          docker tag "$IMAGE_REF" jupus-app
+
+      - name: "Check migrations"
+        run: bash check_migrations.sh
+
+  # Cheap PR-diff gate for required backend checks. Skipping a *named*
+  # required job leaves branch protection on "Waiting for status". This
+  # job always runs and exposes `types` / `tests`; the expensive runners
+  # are separate jobs gated on those outputs, and the required job names
+  # report success when the diff cannot affect that gate.
+  backend_ci_filter:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      types: ${{ steps.decide.outputs.types }}
+      tests: ${{ steps.decide.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        if: github.event_name == 'pull_request'
+        id: filter
+        with:
+          # `backend_surface` is a YAML anchor, not a gate anyone reads: it is
+          # the set that must invalidate *both* gates. Adding a backend
+          # dependency file to only one of the two lists is exactly the
+          # cache-miss/skip bug this filter exists to prevent, so anything
+          # shared belongs in the anchor. dorny/paths-filter parses this block
+          # as YAML and flattens nested lists, so `- *backend_surface`
+          # splices the entries in.
+          #
+          # Every path that feeds the app image hash lives here, because
+          # `bake_app_image` is ungated: a diff that changes the hash but
+          # not a gate pushes an image no job in that run ever exercises.
+          # `test_backend_ci_filter_covers_every_image_hash_input` enforces it.
+          # The baked-database inputs are here for the same reason: they
+          # change the schema-*/migrated-* tags both backend gates pull.
+          filters: |
+            backend_surface: &backend_surface
+              - '.dockerignore'
+              - 'app/**'
+              - 'docker-compose.ci-bake.yml'
+              - 'docker-compose.yml'
+              - 'docker/app/**'
+              - 'docker/postgres/ci/**'
+              - 'ml_models/**'
+              - 'pyproject.toml'
+              - 'scripts/ci/**'
+              - 'scripts/install-safe-chain.sh'
+              - 'uv.lock'
+              - 'uv.toml'
+              - '.github/workflows/main.yml'
+            types:
+              - *backend_surface
+              - 'generate_types.sh'
+              - 'docker-compose.ci-migrate.yml'
+              # Names the golden-master dump the migrated image is baked from,
+              # so it changes that image's tag. Only this gate pulls the image.
+              - 'scripts/e2e/config.sh'
+              - 'spa-frontend/src/types/generated/**'
+              - 'spa-frontend/src/types/generated-admin/**'
+              - 'spa-frontend/openapi-ts.config.ts'
+              - 'spa-frontend/openapi-ts.admin.config.ts'
+              - 'spa-frontend/package.json'
+              - 'spa-frontend/pnpm-lock.yaml'
+            tests:
+              - *backend_surface
+              - 'run_tests.sh'
+              - 'docker-compose.ci.yml'
+              - 'docker/postgres/**'
+              - 'docker/redis/**'
+              - 'docker/file-converter/**'
+              - 'docker/fonts/**'
+              - 'docker/bea-sidecar/**'
+              - 'bea-sidecar/**'
+
+      - name: Decide which backend gates must run
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "types=true" >> "$GITHUB_OUTPUT"
+            echo "tests=true" >> "$GITHUB_OUTPUT"
+            echo "Push runs always check generated types and the Django suite"
+            exit 0
+          fi
+          echo "types=${{ steps.filter.outputs.types }}" >> "$GITHUB_OUTPUT"
+          echo "tests=${{ steps.filter.outputs.tests }}" >> "$GITHUB_OUTPUT"
+
+  run_backend_type_generation:
+    needs: [backend_ci_filter, resolve_image_tags, bake_app_image, bake_support_images, bake_db_migrated_image]
+    # Every bake is skipped on a GHCR cache hit; `always()` plus an explicit
+    # skipped-or-success check per bake lets this job still run.
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.backend_ci_filter.result == 'success' &&
+      needs.backend_ci_filter.outputs.types == 'true' &&
+      needs.resolve_image_tags.result == 'success' &&
+      (needs.bake_app_image.result == 'success' || needs.bake_app_image.result == 'skipped') &&
+      (needs.bake_support_images.result == 'success' || needs.bake_support_images.result == 'skipped') &&
+      (needs.bake_db_migrated_image.result == 'success' || needs.bake_db_migrated_image.result == 'skipped')
+    # RunsOn Flex (PHX-800): 8 vCPU / 32 GB on-demand AMD EPYC (m7a.2xlarge).
+    # Named runner is defined in the protected
+    # jupus-legal/.github-private/.github/runs-on.yml catalogue (`ubuntu-8`).
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-8
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: "Setup environment"
+        # ``generate_types.sh --check bea`` hits the sidecar over HTTPS
+        # and so needs the BEA_SIDECAR_* bundle (API key + TLS keystore
+        # + CA PEM). Those values come from AWS Secrets Manager via
+        # ``load-aws-secrets.sh`` at container boot — CI only has to
+        # provide the AWS credentials that can read those secrets.
+        run: |
+          mkdir -p .envs/private
+          echo "${{ secrets.AWS_SCM_CREDENTIALS_DEVELOPMENT }}" > .envs/private/dev.env
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: "10.33.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.15.0"
+          cache: "pnpm"
+          cache-dependency-path: spa-frontend/pnpm-lock.yaml
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install dependencies
+        working-directory: spa-frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt images
+        env:
+          APP_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.app_image_ref }}
+          DB_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.db_migrated_image_ref }}
+          REDIS_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.redis_image_ref }}
+          SIDECAR_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.sidecar_image_ref }}
+        # Concurrent for the same reason as in run_backend_tests — see the
+        # longer note there.
+        run: |
+          set -euo pipefail
+          pids=()
+          for ref in "$APP_IMAGE_REF" "$DB_IMAGE_REF" "$REDIS_IMAGE_REF" "$SIDECAR_IMAGE_REF"; do
+            docker pull -q "$ref" &
+            pids+=("$!")
+          done
+          failed=0
+          for pid in "${pids[@]}"; do
+            wait "$pid" || failed=1
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::at least one image pull failed"
+            exit 1
+          fi
+          docker tag "$APP_IMAGE_REF" jupus-app
+          docker tag "$DB_IMAGE_REF" jupus-db
+          docker tag "$REDIS_IMAGE_REF" jupus-redis
+          docker tag "$SIDECAR_IMAGE_REF" jupus-bea-sidecar
+
+      - name: "Start database container (migrate-tuned)"
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci-migrate.yml up -d --no-build db
+          timeout 300 bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci-migrate.yml exec -T db psql -h 127.0.0.1 -U jupus -d postgres -c "SELECT 1" > /dev/null 2>&1; do sleep 1; done'
+
+      # The probe above runs inside the container over 127.0.0.1, which
+      # initdb's pg_hba trusts, so it passes even when the baked password no
+      # longer matches Secrets Manager. Without this step that drift would
+      # surface as an opaque auth error inside `migrate`.
+      - name: "Verify baked database credentials"
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.ci-migrate.yml
+        run: bash scripts/ci/verify-db-credentials.sh
+
+      - name: "Start app container"
+        run: docker compose -f docker-compose.yml -f docker-compose.ci-migrate.yml up -d --no-build app
+
+      - name: "Check Django migrations"
+        # The migrated image already applied the graph, so `migrate --check`
+        # is a seconds-long confirmation instead of 6+ min of `migrate`. It
+        # runs system checks itself — a second `compose run … check` would
+        # pay another container boot, sidecar recreate, and Secrets Manager
+        # round-trip (~25s) for a gate this already covers.
+        # Do not switch this to `compose exec`: vault_entrypoint.sh
+        # injects AWS secrets into PID 1 only, so exec'd processes miss
+        # them. `--no-deps` keeps the already-running sidecar. Do not
+        # add --skip-checks. docker-compose.ci.yml (pytest,
+        # max_parallel_workers=0) is intentionally not used. `--check`
+        # issues no DDL, so that only matters if this gate ever goes back
+        # to applying the graph itself.
+        run: docker compose -f docker-compose.yml -f docker-compose.ci-migrate.yml run --no-deps --rm -T app python manage.py migrate --check --noinput
+
+      - name: "Check type generation"
+        run: bash generate_types.sh --check
+
+      - name: Upload generated clients
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-generated-clients-${{ github.run_id }}
+          path: |
+            spa-frontend/src/types/generated
+            spa-frontend/src/types/generated-admin
+            app/bea/_generated/models.py
+          if-no-files-found: error
+          retention-days: 7
+
+  # Required check name. Always reports: green when the PR cannot change
+  # the generated client, otherwise the result of run_backend_type_generation.
+  check_backend_type_generation:
+    needs: [backend_ci_filter, run_backend_type_generation]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Report type-generation gate
+        run: |
+          filter="${{ needs.backend_ci_filter.result }}"
+          needed="${{ needs.backend_ci_filter.outputs.types }}"
+          types="${{ needs.run_backend_type_generation.result }}"
+          if [ "$filter" != "success" ]; then
+            echo "::error::backend_ci_filter: $filter"
+            exit 1
+          fi
+          if [ "$needed" != "true" ]; then
+            echo "PR diff does not affect the OpenAPI / generated-client surface — skipping generate_types.sh"
+            exit 0
+          fi
+          if [ "$types" != "success" ]; then
+            echo "::error::run_backend_type_generation: $types"
+            exit 1
+          fi
+
+  run_backend_tests:
+    needs: [backend_ci_filter, resolve_image_tags, bake_app_image, bake_support_images, bake_db_schema_image]
+    # Every bake is skipped on a GHCR cache hit; `always()` plus an explicit
+    # skipped-or-success check per bake lets this job still run.
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.backend_ci_filter.result == 'success' &&
+      needs.backend_ci_filter.outputs.tests == 'true' &&
+      needs.resolve_image_tags.result == 'success' &&
+      (needs.bake_app_image.result == 'success' || needs.bake_app_image.result == 'skipped') &&
+      (needs.bake_support_images.result == 'success' || needs.bake_support_images.result == 'skipped') &&
+      (needs.bake_db_schema_image.result == 'success' || needs.bake_db_schema_image.result == 'skipped')
+    # RunsOn Flex (PHX-799): 8 vCPU / 32 GB (m7a.2xlarge). Prefers
+    # `ubuntu-8-spot`; Flex falls back to on-demand when Spot capacity is
+    # missing or the circuit breaker trips, and `retry: when-interrupted`
+    # reruns once on on-demand if AWS reclaims the instance. pytest-split
+    # partitions the suite; xdist still parallelises inside each shard.
+    # `--splits` MUST equal the length of `matrix.group` — a mismatch drops
+    # tests while every job stays green. Enforced by test_ci.
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-8-spot
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: "Setup environment"
+        # ``app`` depends_on bea-sidecar, so ``docker compose up -d app``
+        # implicitly starts the sidecar. The sidecar's
+        # Config.fromEnvironment needs BEA_SIDECAR_* + BEA_MTLS_* — those
+        # are fetched from AWS Secrets Manager at container boot by
+        # ``load-aws-secrets.sh``; CI only needs to hand it the AWS
+        # credentials that can read those secrets.
+        run: |
+          mkdir -p .envs/private
+          echo "${{ secrets.AWS_SCM_CREDENTIALS_DEVELOPMENT }}" > .envs/private/dev.env
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.APP_IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt images
+        env:
+          APP_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.app_image_ref }}
+          DB_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.db_schema_image_ref }}
+          REDIS_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.redis_image_ref }}
+          SIDECAR_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.sidecar_image_ref }}
+          FILE_CONVERTER_IMAGE_REF: ${{ needs.resolve_image_tags.outputs.file_converter_image_ref }}
+        # Pulled concurrently, not one after another: sequentially this step
+        # cost 69 s of a ~400 s job, and the five images have no ordering
+        # relationship. The daemon overlaps each image's download with the
+        # others' layer extraction, so the wall clock approaches the slowest
+        # single image instead of the sum. `-q` keeps five interleaved
+        # progress renderers out of the log.
+        #
+        # `wait` is called per pid and its status captured, rather than a
+        # bare `wait`: under `set -e` the first failing `wait` would abort
+        # the loop, orphaning the remaining pulls, and a bare `wait` reports
+        # only the last job's status — a failed pull would then reach
+        # `docker tag` as an opaque "reference does not exist".
+        run: |
+          set -euo pipefail
+          pids=()
+          for ref in "$APP_IMAGE_REF" "$DB_IMAGE_REF" "$REDIS_IMAGE_REF" \
+                     "$SIDECAR_IMAGE_REF" "$FILE_CONVERTER_IMAGE_REF"; do
+            docker pull -q "$ref" &
+            pids+=("$!")
+          done
+          failed=0
+          for pid in "${pids[@]}"; do
+            wait "$pid" || failed=1
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::at least one image pull failed"
+            exit 1
+          fi
+          docker tag "$APP_IMAGE_REF" jupus-app
+          docker tag "$DB_IMAGE_REF" jupus-db
+          docker tag "$REDIS_IMAGE_REF" jupus-redis
+          docker tag "$SIDECAR_IMAGE_REF" jupus-bea-sidecar
+          docker tag "$FILE_CONVERTER_IMAGE_REF" jupus-file-converter
+
+      - name: "Start database container (test-tuned)"
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --no-build db
+          timeout 300 bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db psql -h 127.0.0.1 -U jupus -d postgres -c "SELECT 1" > /dev/null 2>&1; do sleep 1; done'
+
+      # The probe above runs inside the container over 127.0.0.1, which
+      # initdb's pg_hba trusts, so it passes even when the baked password no
+      # longer matches Secrets Manager. Without this step that drift would
+      # surface as an opaque auth error inside pytest.
+      - name: "Verify baked database credentials"
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
+        run: bash scripts/ci/verify-db-credentials.sh
+
+      # DOC-006's golden-file parity gate talks to a real converter, and
+      # CONVERTER_PARITY_REQUIRED below turns an absent one into a failure
+      # rather than a skip. It has to start in THIS job: every job gets its own
+      # runner and its own Docker daemon, so a converter started in another one
+      # is not reachable from these tests -- which is what happened, and is why
+      # the gate then failed exactly as designed.
+      #
+      # App and file-converter are independent (file-converter has no
+      # depends_on). GitHub Actions cannot run job steps in parallel, so one
+      # `compose up` starts both at once: sidecar boot overlaps with converter
+      # start. `--no-build` is required: without a pre-tagged
+      # `jupus-file-converter` Compose would `apt-get install libreoffice`
+      # on this runner. Probed with curl INSIDE the container. The service
+      # publishes no ports, so the runner's own localhost:5000 is nothing at
+      # all, and `exec ... python` resolves to the safe-chain shim, which
+      # uid 1001 cannot read.
+      - name: "Start app and file-converter containers"
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --no-build app file-converter
+          timeout 180 bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T file-converter curl -fsS http://localhost:5000/health >/dev/null 2>&1; do sleep 3; done'
+
+      # The reviewed AVV dataset is deliberately blocked until the complete
+      # publisher corpus can activate. Assert that static precondition before
+      # starting Django, then retain the blocked report as CI evidence. This
+      # must never seed a corpus, invoke a selector, or call a paid model.
+      - name: Emit blocked AVV retrieval benchmark evidence
+        if: ${{ matrix.group == 1 }}
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
+          AVV_BENCHMARK_REPORT: /app/avv-retrieval-benchmark-blocked.json
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          dataset = json.loads(
+              Path("app/tests/internal_ai_benchmarks/benchmarks/legislation_retrieval/avv_dataset/queries.json")
+              .read_text(encoding="utf-8")
+          )
+          if dataset.get("baseline_status") != "blocked":
+              raise SystemExit("Refusing to run a non-blocked AVV benchmark in the backend test job.")
+          PY
+          docker compose run --rm --no-deps -e CI=true -e GITHUB_SHA app python -m tests.internal_ai_benchmarks.benchmarks.legislation_retrieval.runner_launcher \
+            --dataset avv --arm lexical --report-json "$AVV_BENCHMARK_REPORT"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path("app/avv-retrieval-benchmark-blocked.json").read_text(encoding="utf-8"))
+          if report.get("status") != "blocked":
+              raise SystemExit("AVV benchmark report must remain blocked.")
+          if report.get("environment") != "ci":
+              raise SystemExit("AVV benchmark report must record the CI environment.")
+          if report.get("code_sha") != os.environ.get("GITHUB_SHA"):
+              raise SystemExit("AVV benchmark report must record the executing GitHub SHA.")
+          if set(report.get("model_arms", {}).values()) != {"not_run"}:
+              raise SystemExit("Blocked AVV benchmark must not execute a retrieval or model arm.")
+          if any(result.get("status") != "blocked" for result in report.get("results", [])):
+              raise SystemExit("Blocked AVV benchmark must not execute a query.")
+          PY
+
+      - name: Upload blocked AVV retrieval benchmark evidence
+        if: ${{ always() && matrix.group == 1 && hashFiles('app/avv-retrieval-benchmark-blocked.json') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: avv-retrieval-benchmark-blocked-${{ github.run_id }}
+          path: app/avv-retrieval-benchmark-blocked.json
+          if-no-files-found: error
+          retention-days: 7
+
+      # Collection, not execution, was the single largest line in this job.
+      # Under `pytest-split --splits/--group` every xdist worker imported all
+      # 21,381 tests and only then deselected down to the ~5,400 the shard
+      # runs: workers were up at 04:50:59 and collection finished at
+      # 04:52:53, i.e. 114 s of a 301 s step, paid in full by all four
+      # shards. Handing pytest this shard's files instead keeps the imports
+      # to the quarter it actually runs (measured locally: 21.9 s to collect
+      # the suite against 7.5 s to collect one shard).
+      #
+      # `--check` is the guard that makes this safe. The script discovers
+      # test files from disk rather than from `.test_durations`, so a file
+      # added since the last timings refresh is still assigned somewhere,
+      # and `--check` fails the job if the four groups are not an exact
+      # partition. A silently unassigned file would never run and every job
+      # would stay green — the same failure mode `--splits` had.
+      - name: "Plan this shard's test files"
+        id: shard
+        run: |
+          python3 scripts/ci/shard_test_paths.py \
+            --splits 4 --group ${{ matrix.group }} --check > /tmp/shard-paths.txt
+          echo "count=$(wc -l < /tmp/shard-paths.txt)" >> "$GITHUB_OUTPUT"
+          echo "paths=$(tr '\n' ' ' < /tmp/shard-paths.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: "Test"
+        id: pytest
+        # ``run_tests.sh`` is the single source of truth for how to run the
+        # Django suite. It probes Postgres, seeds ``template1`` extensions,
+        # keeps the pre-baked ``jupus_template`` (``KEEP_SCHEMA_TEMPLATE``),
+        # then invokes pytest under ``-n auto --dist worksteal --nomigrations
+        # --create-db``. ``COMPOSE_FILE`` also reads ``docker-compose.ci.yml``.
+        # Setting ``COMPOSE_FILE`` makes every ``docker compose`` call inside
+        # the script also read ``docker-compose.ci.yml`` (test-tuned Postgres).
+        # Coverage XML and the Codacy upload happen in ``merge_backend_coverage``
+        # after ``coverage combine``; shards only write ``.coverage``.
+        # ``--junitxml`` lands on the bind mount so the ``test`` gate can name
+        # failures across shards. Coverage XML is not generated here.
+        run: |
+          ./run_tests.sh --cov=./ --junitxml=junit.xml
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
+          # A converter is started above, so the parity gate must not skip here.
+          CONVERTER_PARITY_REQUIRED: "1"
+          DJANGO_TEST_DB_TEMPLATE: jupus_template
+          KEEP_SCHEMA_TEMPLATE: "1"
+          # Pinned rather than computed so the count does not move with the
+          # instance the pool happens to hand out. Deliberately one per vCPU
+          # rather than nproc-1: the workers spend a large share of their time
+          # waiting on Postgres, so leaving a core idle for the controller buys
+          # less than an eighth worker does. Compared against 7 on this runner
+          # before being set — do not raise it further, 8 already oversubscribes
+          # the box with Postgres, Redis and the converter on it.
+          #
+          # This was lowered to 5 and then 4 on the theory that dying workers
+          # meant the workers did not fit. They always did: the report below
+          # measures four of them peaking at 5.4 GiB of the runner's 30.6 GiB.
+          # The deaths were ``pytest-timeout`` instead — every one of them came
+          # exactly 120s after the last line of output, and ``--timeout-method
+          # thread`` ends a hung worker with ``os._exit``, which xdist can only
+          # report as "node down: Not properly terminated". What hung was
+          # ``AgentBase.__del__`` calling ``langfuse.flush()``, a finaliser
+          # doing blocking network I/O in whichever test the collector happened
+          # to interrupt (teardowns of 90-117s show up in ``--durations``).
+          PYTEST_XDIST_AUTO_NUM_WORKERS: "8"
+          # Attributes RSS growth to the test that caused it, so the worker cap
+          # above stays a measured number. This is what ruled memory out as the
+          # reason workers were dying. See app/tests/utils/memory_report.py.
+          PYTEST_MEMORY_REPORT: "1"
+          # The shard's file list replaces ``--splits/--group``; the planner
+          # above owns the partition and its ``--splits`` must match
+          # ``strategy.matrix.group`` length (test_ci). pytest-split stays for
+          # ``--store-durations`` alone, which still feeds
+          # refresh-backend-timings.yml — and therefore the planner's weights.
+          PYTEST_ARGS: "--store-durations --clean-durations ${{ steps.shard.outputs.paths }}"
+
+      # ``run_tests.sh`` documents ``NO_XDIST=1`` as a supported mode, and it is what
+      # a plain ``pytest <file>`` gives anyone debugging one file -- but every shard
+      # above runs under xdist, so nothing in CI exercises it. The two modes are not
+      # interchangeable: ``app/settings/dev.py`` resolves ``MEDIA_ROOT`` to
+      # ``/data/media`` without ``PYTEST_XDIST_WORKER`` and to ``/data/media/gwN``
+      # with it, so a file that depends on file storage can pass in one mode and
+      # fail in the other. Re-running that one file serially keeps the serial path
+      # honest. It costs ordinary CI compute time on a runner that is already up,
+      # starts no extra service, and writes its own JUnit report.
+      - name: "Test (serial, NO_XDIST=1): real-upload validation"
+        id: pytest_serial
+        # Only once this shard actually attempted its own ``Test`` step, so a failed
+        # setup never launches pytest against unprepared services. An unattempted
+        # ``Test`` leaves ``conclusion`` empty or ``skipped``; both are excluded.
+        if: ${{ !cancelled() && matrix.group == 1 && (steps.pytest.conclusion == 'success' || steps.pytest.conclusion == 'failure') }}
+        run: |
+          ./run_tests.sh --junitxml=junit-serial.xml \
+            tests/internal_ai_benchmarks/benchmarks/chat_context_retrieval/tests/test_real_upload_validation.py
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
+          CONVERTER_PARITY_REQUIRED: "1"
+          DJANGO_TEST_DB_TEMPLATE: jupus_template
+          KEEP_SCHEMA_TEMPLATE: "1"
+          # The ``Test`` step above already probed Postgres, seeded ``template1`` and
+          # recreated Redis; repeating that here would only cost time.
+          KEEP_DB: "1"
+          NO_XDIST: "1"
+          # Cleared deliberately. The shard's file list belongs to the xdist run, and
+          # ``--store-durations --clean-durations`` must not run twice -- the
+          # durations file feeds the planner's weights. This step names its single
+          # file as a positional argument instead. No ``--cov`` either, so the
+          # shard's ``.coverage`` is neither appended to nor overwritten.
+          PYTEST_ARGS: ""
+          # The isolated retry ``run_tests.sh`` can perform is opt-in and stays off
+          # here, as it does for the shards above: a second pass would overwrite the
+          # first failure's JUnit report with a report of the re-run.
+
+      # ``worker gwN crashed`` looks the same whether the kernel killed the
+      # process or ``--timeout-method thread`` did, and the cap above was
+      # lowered twice on the wrong guess. The kernel ring buffer settles it: an
+      # OOM kill leaves an ``oom-kill`` line naming the pid and its RSS, and
+      # its absence points back at the timeout instead. Evidence, not a gate:
+      # it only runs when pytest already failed, and never fails the job.
+      - name: "Post-mortem: was an xdist worker OOM-killed?"
+        if: ${{ failure() && steps.pytest.outcome == 'failure' }}
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
+        run: |
+          echo "::group::Kernel OOM records"
+          sudo dmesg -T 2>/dev/null \
+            | grep -i -E 'oom.kill|killed process|out of memory' \
+            || echo "No OOM records in the kernel ring buffer — the failure was not an OOM kill."
+          echo "::endgroup::"
+          echo "::group::Memory and swap"
+          free -m
+          swapon --show || echo "No swap configured on this runner."
+          echo "::endgroup::"
+          # The pytest container is gone (``compose run --rm``); db, redis and
+          # file-converter are not, and their share of the box is the other
+          # half of the budget the workers had to fit into.
+          echo "::group::Remaining container memory"
+          docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}' || true
+          echo "::endgroup::"
+
+      - name: Upload pytest memory report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-memory-${{ matrix.group }}
+          path: app/.pytest-memory/
+          # Without this the whole directory is skipped -- upload-artifact
+          # excludes dot paths by default, and the step then "succeeds" with a
+          # warning and no artifact. Same reason the coverage and durations
+          # uploads below set it.
+          include-hidden-files: true
+          # A killed worker leaves a file without an end record, which is the
+          # signal we want; an absent directory only means pytest died before
+          # its first test and must not mask that failure with an upload error.
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload pytest coverage data
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-coverage-${{ matrix.group }}
+          path: app/.coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload pytest junit
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-junit-${{ matrix.group }}
+          path: app/junit.xml
+          if-no-files-found: error
+          retention-days: 7
+
+      # Named to match the ``backend-junit-*`` pattern the ``test`` gate downloads,
+      # so a serial failure is listed by name like any shard failure.
+      - name: Upload pytest junit (serial)
+        # Uploaded only when the serial step was attempted. An attempted run that
+        # produced no report is a real problem, so it fails rather than warns.
+        if: ${{ !cancelled() && (steps.pytest_serial.conclusion == 'success' || steps.pytest_serial.conclusion == 'failure') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-junit-serial
+          path: app/junit-serial.xml
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload pytest durations
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-durations-${{ matrix.group }}
+          path: app/.test_durations
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  merge_backend_coverage:
+    needs: [run_backend_tests]
+    # Run on shard success *or* failure so the join path is exercised even
+    # when one group flakes. Skip when the matrix never ran (filter skip /
+    # cancelled). The ``test`` gate still fails the PR if any shard failed.
+    if: |
+      always() &&
+      !cancelled() &&
+      (needs.run_backend_tests.result == 'success' || needs.run_backend_tests.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          version: "0.11.7"
+
+      - name: Download pytest coverage shards
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: backend-coverage-*
+          path: coverage-shards
+
+      - name: Combine coverage
+        run: |
+          shopt -s nullglob
+          mkdir -p coverage-combined
+          i=0
+          for shard in coverage-shards/backend-coverage-*; do
+            i=$((i + 1))
+            cp "${shard}/.coverage" "coverage-combined/.coverage.${i}"
+          done
+          if [ "$i" -eq 0 ]; then
+            echo "::error::No backend-coverage-* artifacts downloaded"
+            exit 1
+          fi
+          # Keep in lockstep with ``run_backend_tests.strategy.matrix.group``.
+          if [ "$i" -ne 4 ]; then
+            echo "::error::Expected 4 backend-coverage artifacts (one per pytest-split group), got $i"
+            exit 1
+          fi
+          # Combine from the repo root so ``[paths] source = app`` in
+          # ``coverage-merge.cfg`` resolves to the checkout, not a subdir.
+          uvx coverage==7.13.5 combine --rcfile=scripts/ci/coverage-merge.cfg --data-file=coverage-combined/.coverage coverage-combined/.coverage.*
+          uvx coverage==7.13.5 xml --rcfile=scripts/ci/coverage-merge.cfg --data-file=coverage-combined/.coverage -o app/coverage.xml
+      # The coverage parser receives no publishing credential. Only this fixed
+      # uploader step receives Codacy access; it never executes application code.
+      - name: Upload coverage to Codacy
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report -l Python -r app/coverage.xml
+
+  # Required check name. Always reports: green when the PR cannot change
+  # the Django suite, otherwise the result of run_backend_tests + coverage merge.
+  test:
+    needs: [backend_ci_filter, run_backend_tests, merge_backend_coverage]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        if: needs.backend_ci_filter.outputs.tests == 'true' && needs.run_backend_tests.result != 'success'
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download pytest junit shards
+        if: needs.backend_ci_filter.outputs.tests == 'true' && needs.run_backend_tests.result != 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: backend-junit-*
+          path: backend-junit
+
+      - name: Collect failed pytest names
+        if: needs.backend_ci_filter.outputs.tests == 'true' && needs.run_backend_tests.result != 'success'
+        id: pytest_failures
+        run: python3 .github/scripts/export_pytest_failures.py backend-junit
+
+      - name: Report Django unit-test gate
+        env:
+          FILTER_RESULT: ${{ needs.backend_ci_filter.result }}
+          NEEDED: ${{ needs.backend_ci_filter.outputs.tests }}
+          TESTS_RESULT: ${{ needs.run_backend_tests.result }}
+          MERGE_RESULT: ${{ needs.merge_backend_coverage.result }}
+          FAILED_TESTS: ${{ steps.pytest_failures.outputs.failed_tests }}
+          FAILED_COUNT: ${{ steps.pytest_failures.outputs.failed_count }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$FILTER_RESULT" != "success" ]; then
+            echo "::error::backend_ci_filter: $FILTER_RESULT"
+            exit 1
+          fi
+          if [ "$NEEDED" != "true" ]; then
+            echo "PR diff does not affect the Django suite — skipping unit tests"
+            exit 0
+          fi
+          if [ "$TESTS_RESULT" != "success" ]; then
+            count="${FAILED_COUNT:-?}"
+            echo "::error::run_backend_tests: $TESTS_RESULT ($count failed). Full log: $RUN_URL"
+            if [ -z "$FAILED_TESTS" ]; then
+              echo "::error::No pytest names (suite may have failed before writing junit.xml)"
+            else
+              n=0
+              while IFS= read -r name; do
+                [ -z "$name" ] && continue
+                n=$((n + 1))
+                if [ "$n" -le 10 ]; then
+                  echo "::error::FAILED $name"
+                else
+                  echo "FAILED $name"
+                fi
+              done <<< "$FAILED_TESTS"
+              {
+                echo "### Pytest failures ($count)"
+                echo
+                printf '%s\n' "$FAILED_TESTS" | sed 's/^/- `/; s/$/`/'
+                echo
+                echo "Full log: $RUN_URL (job \`run_backend_tests\`)"
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 1
+          fi
+          if [ "$MERGE_RESULT" != "success" ]; then
+            echo "::error::merge_backend_coverage: $MERGE_RESULT. Full log: $RUN_URL"
+            exit 1
+          fi
+
+  test_bea_sidecar:
+    # JUnit suite for the Java sidecar. Runs in a containerised Gradle
+    # (same gradle:8.11-jdk17 the sidecar Dockerfile uses for its build
+    # stage) so compile + test share the exact BRAK-blessed JDK. The
+    # run_sidecar_tests.sh script is the single source of truth for how
+    # the Java suite boots — no extra steps needed here.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Compute LFS cache key
+        id: lfs_key
+        run: bash .github/scripts/compute_lfs_cache_key.sh "bea-sidecar/vendor/toolkit/latest/**"
+
+      - name: Cache Git LFS objects
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .git/lfs
+          key: git-lfs-${{ runner.os }}-${{ steps.lfs_key.outputs.hash }}
+
+      - name: Pull LFS files
+        run: git lfs pull --include="bea-sidecar/vendor/toolkit/latest/**"
+
+      - name: "Run sidecar JUnit tests"
+        run: ./run_sidecar_tests.sh
+
+  spa-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: "10.33.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.15.0"
+          cache: "pnpm"
+          cache-dependency-path: spa-frontend/pnpm-lock.yaml
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install dependencies
+        working-directory: spa-frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate types
+        working-directory: spa-frontend
+        run: pnpm run generate-types
+
+      - name: Build Vue
+        working-directory: spa-frontend
+        env:
+          NODE_OPTIONS: "--max_old_space_size=6144"
+        run: pnpm run build-only
+
+  check_spa_frontend:
+    # RunsOn Flex: 4 vCPU / 16 GB from the protected
+    # jupus-legal/.github-private runner catalogue (`ubuntu-large`).
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-large
+    permissions:
+      contents: read
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: "10.33.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.15.0"
+          cache: "pnpm"
+          cache-dependency-path: spa-frontend/pnpm-lock.yaml
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install dependencies
+        working-directory: spa-frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore check caches (eslint, prettier, tsbuildinfo)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            spa-frontend/node_modules/.cache/eslint
+            spa-frontend/node_modules/.cache/prettier
+            spa-frontend/node_modules/.tmp
+          key: spa-check-caches-${{ runner.os }}-${{ hashFiles('spa-frontend/pnpm-lock.yaml', 'spa-frontend/tsconfig*.json', 'spa-frontend/.eslintrc.cjs', 'spa-frontend/.prettierrc.json', 'spa-frontend/.prettierignore', 'spa-frontend/.scripts/format-check.js') }}-${{ github.sha }}
+          restore-keys: |
+            spa-check-caches-${{ runner.os }}-${{ hashFiles('spa-frontend/pnpm-lock.yaml', 'spa-frontend/tsconfig*.json', 'spa-frontend/.eslintrc.cjs', 'spa-frontend/.prettierrc.json', 'spa-frontend/.prettierignore', 'spa-frontend/.scripts/format-check.js') }}-
+            spa-check-caches-${{ runner.os }}-
+
+      # Prettier bundles a file-entry-cache that flags a file as changed on an
+      # mtime mismatch before it ever compares the content hash, and never
+      # clears the flag. actions/checkout writes fresh mtimes every run, so
+      # --cache-strategy content is a no-op unless the mtimes are pinned to a
+      # constant. Size and hash still do the real change detection.
+      - name: Normalise src mtimes for the content caches
+        working-directory: spa-frontend
+        run: |
+          find src -type f -exec touch -d @1000000000 {} +
+
+      - name: Run spa-frontend checks (parallel)
+        working-directory: spa-frontend
+        run: pnpm exec run-p --aggregate-output --continue-on-error lint-check format-check check-imports entity-translation-check
+
+  # NOT ENFORCED AT THE MOMENT: https://jupus.atlassian.net/browse/DEV-456
+  #
+  #      - name: "NPM install Spa-frontend"
+  #        run: cd spa-frontend && npm install --legacy-peer-deps
+  #
+  #      - name: "Check types"
+  #        run: cd spa-frontend && npm run type-check
+
+  run_spa_frontend_tests:
+    # RunsOn Flex: 8 vCPU / 32 GB (m7a.2xlarge). Prefers `ubuntu-8-spot`; Flex
+    # falls back to on-demand when Spot capacity is missing or the circuit
+    # breaker trips, and `retry: when-interrupted` reruns once on on-demand
+    # if AWS reclaims the instance. Four on-demand shards were the largest
+    # RunsOn cost lever in jupus-dev. ``--shard=i/4`` MUST match
+    # ``strategy.matrix.shard`` length (test_ci).
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-8-spot
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    permissions:
+      contents: read
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: "10.33.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.15.0"
+          cache: "pnpm"
+          cache-dependency-path: spa-frontend/pnpm-lock.yaml
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install dependencies
+        working-directory: spa-frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run vitest shard with coverage
+        working-directory: spa-frontend
+        # Invoke vitest directly: `pnpm run script -- <flags>` forwards the
+        # literal `--`, which vitest reads as end-of-options, silently
+        # dropping --coverage (no lcov.info, diff-cover then errors).
+        # ``--reporter=blob`` stores this shard's results + coverage for the
+        # join job; ``default`` keeps the usual CI log. ``/4`` must match
+        # ``matrix.shard`` length.
+        run: pnpm exec vitest run --coverage --reporter=default --reporter=blob --shard=${{ matrix.shard }}/4
+
+      - name: Upload vitest blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-blob-${{ matrix.shard }}
+          path: spa-frontend/.vitest-reports
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  run_browser_extension_tests:
+    # The companion's own suite. It was not gated before: the extension is the
+    # half of RA-MICRO integration that reaches into a firm's case files, and
+    # its page-bridge parity test is the thing that keeps both halves of the
+    # bridge declaring the same message types. A green PR that silently broke
+    # either was possible until this job existed.
+    #
+    # Single runner rather than sharded: the suite is seconds, and the two
+    # build-artefact suites need `.output/`, which is produced here rather than
+    # skipped.
+    runs-on: runs-on=${{ github.run_id }}/runner=ubuntu-8-spot
+    permissions:
+      contents: read
+    steps:
+      - uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0 — Magic Cache
+
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: "10.33.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.15.0"
+
+      - name: Install dependencies
+        working-directory: browser-extension
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Type-check
+        working-directory: browser-extension
+        run: pnpm exec tsc --noEmit
+
+      - name: Build both targets
+        # `manifest_contract` and `package_contents` read `.output/`; without a
+        # build they fail on a missing directory rather than on anything real.
+        working-directory: browser-extension
+        run: pnpm build && pnpm build:firefox && pnpm zip && pnpm zip:firefox
+
+      - name: Run tests
+        working-directory: browser-extension
+        run: pnpm test
+
+  merge_spa_frontend_coverage:
+    needs: [run_spa_frontend_tests]
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.run_spa_frontend_tests.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+        with:
+          # Full history so diff-cover can find the merge-base with the PR base.
+          fetch-depth: 0
+          # Token stays in git config: the later ``git fetch origin ${{ github.base_ref }}``
+          # needs it on this private repo.
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: "10.33.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.15.0"
+          cache: "pnpm"
+          cache-dependency-path: spa-frontend/pnpm-lock.yaml
+
+      - name: Install Aikido Safe Chain
+        run: sh scripts/install-safe-chain.sh
+
+      - name: Install dependencies
+        working-directory: spa-frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Download vitest blob reports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: frontend-blob-*
+          path: spa-frontend/.vitest-reports
+          merge-multiple: true
+
+      - name: Merge vitest coverage
+        working-directory: spa-frontend
+        run: pnpm exec vitest --merge-reports --coverage
+
+      - name: Set up uv
+        if: github.event_name == 'pull_request'
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          version: "0.11.7"
+
+      - name: Enforce diff coverage (>= 80% on changed lines)
+        if: github.event_name == 'pull_request'
+        working-directory: spa-frontend
+        # Global coverage is not gated; only the lines this PR adds or changes
+        # must be >= 80% covered. `diff.relative` makes git emit
+        # spa-frontend-relative paths so they line up with the lcov report's
+        # paths (without it diff-cover matches nothing and passes vacuously).
+        # Enforced in-runner; to also surface coverage in Codacy, upload
+        # coverage/lcov.info with the existing CODACY_PROJECT_TOKEN secret.
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          git config diff.relative true
+          uvx diff-cover@10.3.0 coverage/lcov.info \
+            --compare-branch "origin/${{ github.base_ref }}" \
+            --fail-under 80
+
+  # Required check name. Matrix legs would be named ``test_spa_frontend (1)``
+  # and silently orphan branch protection / tag-staging. This job stays
+  # un-matrixed and reports the aggregate of shards + coverage merge.
+  test_spa_frontend:
+    needs: [run_spa_frontend_tests, merge_spa_frontend_coverage]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Report vitest gate
+        env:
+          SHARDS_RESULT: ${{ needs.run_spa_frontend_tests.result }}
+          MERGE_RESULT: ${{ needs.merge_spa_frontend_coverage.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$SHARDS_RESULT" != "success" ]; then
+            echo "::error::run_spa_frontend_tests: $SHARDS_RESULT. Full log: $RUN_URL"
+            exit 1
+          fi
+          if [ "$MERGE_RESULT" != "success" ]; then
+            echo "::error::merge_spa_frontend_coverage: $MERGE_RESULT. Full log: $RUN_URL"
+            exit 1
+          fi
+
+  # Run @smoke E2E tests on push to master (fast merge gate; full regression
+  # coverage runs nightly instead, see QA-16)
+  security-review:
+    uses: ./.github/workflows/glm-security-review.yml
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    permissions:
+      contents: read
+    with:
+      enabled: ${{ vars.GLM_SECURITY_REVIEW_ENABLED == 'true' }}
+    secrets:
+      OPENROUTER_GLM_SECURITY_REVIEW_API_KEY: ${{ secrets.OPENROUTER_GLM_SECURITY_REVIEW_API_KEY }}
+      SLACK_SECURITY_BOT_TOKEN: ${{ secrets.SLACK_SECURITY_BOT_TOKEN }}
+
+  e2e-tests:
+    # SWITCHED to Playwright (QA-27). The Cypress lane is kept in the repo and still callable
+    # by hand, but nothing triggers it any more.
+    uses: ./.github/workflows/test-e2e-playwright.yml
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    # Ceiling for the nested reusable chain (test-e2e-playwright → build-e2e-images).
+    # GitHub validates this at startup even when the job is skipped; extra
+    # scopes in a nested job fail *this whole workflow* with zero jobs.
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      packages: write
+    secrets: inherit
+    with:
+      commit_sha: ${{ github.sha }}
+      # The Playwright equivalent of Cypress's `run_smoke: true`. There is no boolean: the
+      # lane filters by tag, and `plan_shards` reads an `@smoke` grep as "one shard", so this
+      # single input decides both what runs and how wide it runs.
+      grep: '@smoke'
+
+  # NOTE: Smart E2E tests now trigger directly via pull_request in smart-test-e2e.yml
+  # (works for any base branch, not just master). Removed workflow_call from here to avoid
+  # duplicate runs. For manual triggers, use workflow_dispatch on smart-test-e2e.yml.
+
+  # Validate E2E mapping: every spec must be in the matrix (run when E2E/mapping/deps change, skip drafts)
+  validate-e2e-mapping:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      pull-requests: read
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    steps:
+      - uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2 # v4.2.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            mapping:
+              - 'spa-frontend/cypress/e2e/**'
+              - 'spa-frontend/.smart-test-mapping/**'
+              - 'spa-frontend/package.json'
+              - 'spa-frontend/pnpm-lock.yaml'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.filter.outputs.mapping == 'true'
+        with:
+          node-version: "24.15.0"
+      - name: Install Aikido Safe Chain
+        if: steps.filter.outputs.mapping == 'true'
+        run: sh scripts/install-safe-chain.sh
+      - name: Install pnpm
+        if: steps.filter.outputs.mapping == 'true'
+        run: npm install -g pnpm@10.33.0
+      - name: Install dependencies
+        if: steps.filter.outputs.mapping == 'true'
+        run: cd spa-frontend && pnpm install --frozen-lockfile
+      - name: Validate E2E mapping
+        if: steps.filter.outputs.mapping == 'true'
+        run: node .smart-test-mapping/validate-mapping.cjs
+        working-directory: spa-frontend
+
+  tag-staging:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+      deployments: write
+      actions: write
+    # e2e-tests is back in this list (PHX-795). It was dropped while the lane
+    # was unreliable, which left the @smoke run on master advisory: it could go
+    # red and staging would be tagged and deployed anyway, so nobody had reason
+    # to look at it. The flakiness it was dropped for was largely
+    # infrastructural — a shared NFS mount, six reused Multipass VMs, and a
+    # per-run image tarball and DB snapshot whose absence failed the lane
+    # outright. None of that exists now: each shard is a fresh instance pulling
+    # content-addressed images from ECR.
+    #
+    # Both e2e-tests and security-review are `push` + master only, so on a pull
+    # request they are skipped and this job is skipped with them. That is the
+    # existing behaviour, not something adding e2e-tests changes.
+    #
+    # This gate covers push-to-master only. The merge queue is a separate
+    # question and belongs to PHX-797: `merge_group` is a distinct event, so
+    # nothing here fires for it.
+    needs:
+      [
+        test,
+        test_bea_sidecar,
+        spa-frontend,
+        check_backend_linting,
+        check_backend_formatting,
+        check_spa_frontend,
+        test_spa_frontend,
+        run_browser_extension_tests,
+        security-review,
+        e2e-tests,
+      ]
+    outputs:
+      tag_name: ${{ steps.generate-tag.outputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2  # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Generate tag name
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        id: generate-tag
+        run: |
+          TAG_NAME="$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)@staging"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Generated tag: $TAG_NAME"
+
+      - name: Create and push tag
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.generate-tag.outputs.tag_name }}"
+          git push origin "${{ steps.generate-tag.outputs.tag_name }}"
+
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    needs: tag-staging
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2  # v4.2.2
+
+      - name: Run deploy workflow
+        run: |
+          gh workflow run deploy.yml --ref "${{ needs.tag-staging.outputs.tag_name }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run docker build workflow
+        run: |
+          gh workflow run docker-build.yml \
+            --ref "${{ needs.tag-staging.outputs.tag_name }}" \
+            -f git_sha="${{ github.sha }}" \
+            -f environment=staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
